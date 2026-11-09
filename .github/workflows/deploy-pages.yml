@@ -1,0 +1,48 @@
+# Publikasikan HANYA folder web/ ke GitHub Pages (project-docs/, db/, tests/ tidak ikut terbuka).
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Ambil kode
+        uses: actions/checkout@v4
+
+      - name: Pastikan tidak ada rahasia di web/
+        run: |
+          if grep -rEn "service_role|sb_secret_|SUPABASE_SERVICE|postgres(ql)?://" web/; then
+            echo "::error::Ditemukan pola rahasia di folder web/. Deploy dibatalkan."
+            exit 1
+          fi
+
+      - name: Siapkan Pages
+        uses: actions/configure-pages@v5
+
+      - name: Unggah folder web/
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

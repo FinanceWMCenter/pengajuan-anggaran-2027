@@ -1,0 +1,623 @@
+/* Komponen WM Center - disalin apa adanya dari design-kit/tokens/wm-components.css. Tambahan khusus portal ada di app.css. */
+/*
+ * Komponen WM Center dalam CSS biasa (tanpa framework), memakai token di wm-tokens.css.
+ * Meniru tampilan sistem Aset WM Center. Awalan wm- supaya tidak bentrok dengan gaya lain.
+ * Muat wm-tokens.css lebih dulu.
+ */
+
+/* ---------- Tombol ---------- */
+.wm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color, background-color, border-color, opacity, box-shadow, transform, filter;
+    transition-duration: 0.12s;
+    transition-timing-function: ease-out;
+}
+.wm-btn:disabled,
+.wm-btn[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.wm-btn-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+}
+.wm-btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+}
+.wm-btn-secondary {
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+}
+.wm-btn-orange {
+    background: var(--brand-orange);
+    color: var(--brand-orange-foreground);
+}
+.wm-btn-outline {
+    background: transparent;
+    color: var(--foreground);
+    border-color: var(--border);
+}
+.wm-btn-outline:hover:not(:disabled) {
+    background: var(--accent);
+}
+.wm-btn-danger {
+    background: var(--destructive);
+    color: #fff;
+}
+/* Tombol teks (tanpa bingkai): tautan aksi kecil di tabel dan form */
+.wm-btn-text {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 0.875rem;
+    color: var(--secondary);
+    cursor: pointer;
+}
+.wm-btn-text:hover {
+    text-decoration: underline;
+}
+.wm-btn-text.is-danger {
+    color: var(--destructive);
+}
+/* Efek tekan: tombol terasa "masuk" saat diklik, jadi klik tidak pernah terlihat tanpa respons */
+@media (hover: hover) {
+    .wm-btn:not(:disabled):hover {
+        box-shadow: 0 2px 6px rgb(14 35 78 / 0.18);
+    }
+}
+.wm-btn:not(:disabled):active {
+    transform: translateY(1px) scale(0.97);
+    filter: brightness(0.9);
+    box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.22);
+}
+@media (pointer: coarse) {
+    .wm-btn-text {
+        padding-block: 0.5rem; /* area tekan ±36px di layar sentuh */
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .wm-btn:not(:disabled):active {
+        transform: none;
+    }
+}
+
+/* ---------- Form ---------- */
+.wm-field {
+    min-width: 0;
+}
+.wm-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+}
+.wm-required {
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--destructive);
+}
+.wm-input,
+.wm-select,
+.wm-textarea {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+    color: var(--foreground);
+    padding: 0.5rem 1rem;
+    font: inherit;
+}
+.wm-input:focus,
+.wm-select:focus,
+.wm-textarea:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+.wm-input:disabled,
+.wm-select:disabled {
+    opacity: 0.6;
+}
+.wm-hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+}
+.wm-error {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    color: var(--destructive);
+}
+.wm-form-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+    .wm-form-grid.cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ---------- Kartu ---------- */
+.wm-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+.wm-card-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.wm-card-subtitle {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+}
+/* Panel merek: satu per halaman */
+.wm-card-brand {
+    border-color: var(--panel);
+    border-bottom: 4px solid var(--brand-orange);
+    background: var(--panel);
+    color: var(--panel-foreground);
+}
+.wm-stat {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    padding: 1rem;
+    box-shadow: var(--shadow-sm);
+    color: inherit;
+    text-decoration: none;
+}
+a.wm-stat:hover {
+    border-color: var(--primary);
+}
+.wm-stat-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+}
+.wm-stat-value {
+    margin-top: 0.25rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+.wm-stat-note {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+}
+.wm-chip {
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+}
+.wm-chip.is-secondary {
+    background: color-mix(in srgb, var(--secondary) 12%, transparent);
+    color: var(--secondary);
+}
+.wm-chip.is-orange {
+    background: color-mix(in srgb, var(--brand-orange) 20%, transparent);
+    color: var(--warning-ink);
+}
+
+/* ---------- Badge status (selalu dengan teks; ikon opsional) ---------- */
+.wm-badge {
+    display: inline-block;
+    border-radius: var(--radius-sm);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    background: var(--accent);
+    color: var(--muted-foreground);
+}
+.wm-badge.is-good {
+    background: color-mix(in srgb, var(--good) 12%, transparent);
+    color: var(--good-ink);
+}
+.wm-badge.is-warning {
+    background: color-mix(in srgb, var(--brand-orange) 20%, transparent);
+    color: var(--warning-ink);
+}
+.wm-badge.is-critical {
+    background: color-mix(in srgb, var(--critical) 12%, transparent);
+    color: var(--critical-ink);
+}
+.wm-badge.is-primary {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary);
+}
+/* Penghitung kecil oranye (mis. jumlah permintaan menunggu di menu) */
+.wm-count {
+    border-radius: 9999px;
+    background: var(--brand-orange);
+    color: var(--brand-orange-foreground);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* ---------- Pesan ---------- */
+.wm-flash {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--accent);
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+.wm-flash.is-error {
+    border-color: var(--destructive);
+    background: transparent;
+    color: var(--destructive);
+}
+.wm-flash.is-warning {
+    border-color: var(--brand-orange);
+    background: color-mix(in srgb, var(--brand-orange) 12%, transparent);
+    color: var(--warning-ink);
+}
+
+/* ---------- Tabel ---------- */
+.wm-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+}
+.wm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+.wm-table thead {
+    background: var(--accent);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+}
+.wm-table th,
+.wm-table td {
+    padding: 0.75rem 1rem;
+    text-align: center; /* header dan sel di tengah; teks panjang pakai .cell-start */
+    vertical-align: middle;
+}
+.wm-table tbody tr {
+    border-bottom: 1px solid var(--border);
+}
+.wm-table tbody tr:last-child {
+    border-bottom: 0;
+}
+.wm-table tbody tr:hover {
+    background: var(--accent);
+}
+.wm-table td.cell-start {
+    text-align: left;
+}
+.wm-table td.cell-num {
+    text-align: right;
+    white-space: nowrap; /* angka rupiah tidak pernah terpecah ("Rp" di atas angka) */
+    font-variant-numeric: tabular-nums;
+}
+.wm-table tr.is-dim {
+    opacity: 0.6;
+}
+.wm-mono {
+    font-family: var(--font-mono);
+}
+
+/* ---------- Modal ---------- */
+/* Lapisan yang menggulir + kartu di dalamnya: di HP kartu rata atas (bagian atas selalu terjangkau), dari 640px ke atas di tengah. */
+.wm-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: rgb(0 0 0 / 0.4);
+}
+.wm-modal-inner {
+    display: flex;
+    min-height: 100%;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 0.75rem;
+}
+@media (min-width: 640px) {
+    .wm-modal-inner {
+        align-items: center;
+        padding: 1rem;
+    }
+}
+.wm-modal-card {
+    width: 100%;
+    max-width: 32rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    padding: 1rem;
+    box-shadow: var(--shadow-lg);
+}
+@media (min-width: 640px) {
+    .wm-modal-card {
+        padding: 1.5rem;
+    }
+}
+.wm-modal-card > * + * {
+    margin-top: 1rem;
+}
+/* Baris tombol: pada form panjang menempel di bawah layar HP */
+.wm-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+.wm-modal-actions.is-sticky {
+    position: sticky;
+    bottom: 0;
+    margin: 0 -1rem -1rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    background: var(--card);
+}
+@media (min-width: 640px) {
+    .wm-modal-actions.is-sticky {
+        position: static;
+        margin: 0;
+        padding: 0.5rem 0 0;
+        border: 0;
+    }
+}
+
+/* ---------- Kerangka halaman: menu samping + header + konten ---------- */
+.wm-app {
+    display: flex;
+    min-height: 100vh;
+}
+.wm-sidebar {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 30;
+    display: flex;
+    width: var(--sidebar-width);
+    flex-direction: column;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    background: var(--card);
+    padding: 1rem 0.75rem;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+}
+.wm-sidebar.is-open {
+    transform: none;
+}
+.wm-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgb(0 0 0 / 0.4);
+}
+@media (min-width: 768px) {
+    .wm-sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        transform: none;
+    }
+    .wm-sidebar-backdrop {
+        display: none;
+    }
+    html[data-sidebar='collapsed'] .wm-sidebar {
+        margin-left: calc(var(--sidebar-width) * -1);
+        visibility: hidden;
+    }
+}
+.wm-logo {
+    display: block;
+    width: 10rem;
+    height: auto;
+}
+:root[data-theme='dark'] .wm-logo-auto,
+:root[data-theme='dark'] .logo-auto {
+    filter: brightness(0) invert(1);
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .wm-logo-auto,
+    :root:not([data-theme='light']) .logo-auto {
+        filter: brightness(0) invert(1); /* logo navy dibalik jadi putih di mode gelap (atau pakai logo-wm-center-white.png) */
+    }
+}
+.wm-nav-group {
+    padding: 1.25rem 15px 0.375rem;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+}
+.wm-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 2px;
+    border-left: 3px solid transparent;
+    border-radius: var(--radius-lg);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--foreground);
+    text-decoration: none;
+    transition: background-color 0.12s;
+}
+.wm-nav-item svg {
+    color: var(--muted-foreground);
+}
+.wm-nav-item:hover {
+    background: var(--accent);
+}
+.wm-nav-item[aria-current='page'] {
+    border-left-color: var(--brand-orange);
+    background: var(--accent);
+    color: var(--primary);
+}
+.wm-nav-item[aria-current='page'] svg {
+    color: var(--primary);
+}
+.wm-main-col {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+}
+.wm-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--card) 90%, transparent);
+    backdrop-filter: blur(8px);
+    padding: 0.625rem 1rem;
+}
+/* Garis gradien merek tipis di tepi atas header (navy -> biru -> oranye) */
+.wm-header::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary), var(--brand-orange));
+    pointer-events: none;
+}
+.wm-avatar {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: var(--accent);
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.wm-main {
+    width: 100%;
+    max-width: var(--page-max-width);
+    margin-inline: auto;
+    flex: 1;
+    padding: 1rem;
+}
+@media (min-width: 768px) {
+    .wm-main {
+        padding: 1.5rem;
+    }
+}
+.wm-page-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+.wm-page-sub {
+    margin: 0;
+    color: var(--muted-foreground);
+}
+
+/* Watermark logo di tengah area konten */
+.wm-watermark {
+    pointer-events: none;
+    position: fixed;
+    inset: var(--header-height) 0 0 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+@media (min-width: 768px) {
+    .wm-watermark {
+        left: var(--sidebar-width);
+    }
+}
+.wm-watermark img {
+    width: min(70%, 460px);
+    opacity: var(--watermark-opacity);
+}
+
+/* ---------- Halaman login ---------- */
+.wm-login-body {
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--accent), var(--background) 55%, var(--background));
+}
+.wm-login-card {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--primary);
+    border-radius: var(--radius-2xl);
+    background: var(--card);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-md);
+}
+
+/* ---------- Grafik sederhana (tanpa pustaka) ---------- */
+.wm-bars {
+    display: grid;
+    gap: 0.5rem;
+}
+.wm-bar-row {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+}
+.wm-bar {
+    height: 0.75rem;
+    border-radius: 0.25rem;
+    background: var(--viz-1);
+}
+.wm-bar.is-2 {
+    background: var(--viz-2);
+}
+.wm-bar.is-neutral {
+    background: var(--viz-neutral);
+}

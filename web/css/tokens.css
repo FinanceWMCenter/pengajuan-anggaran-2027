@@ -1,0 +1,194 @@
+/* Token desain WM Center - disalin apa adanya dari design-kit/tokens/wm-tokens.css (sumber: sistem Aset WM Center). */
+/*
+ * WM Center design tokens (sumber: sistem Aset WM Center, resources/css/app.css).
+ * Plain CSS variables: bisa dipakai di HTML biasa, React, Vue, Tailwind, atau apa pun.
+ *
+ * Aturan pakai:
+ *  - Jangan menulis warna mentah di komponen. Selalu var(--token).
+ *  - Mode gelap otomatis mengikuti perangkat (prefers-color-scheme). Untuk tombol ganti tema, set
+ *    <html data-theme="dark"> atau data-theme="light"; keduanya mengalahkan pengaturan perangkat.
+ *  - Teks di atas oranye SELALU navy (--brand-orange-foreground). Putih di atas oranye terlalu pudar.
+ *  - Warna status (good / warning / critical) khusus untuk STATUS dan SELALU disertai ikon + teks, bukan warna saja.
+ */
+
+:root {
+    /* Permukaan dan teks */
+    --background: #f7f8fb;
+    --foreground: #0f1b33;
+    --card: #ffffff;
+    --border: #dfe5f0;
+    --muted-foreground: #5b6a85;
+    --accent: #edf1fa; /* latar lembut: hover menu, baris tabel disorot, header tabel, chip */
+    --destructive: #b91c1c;
+
+    /* Merek: navy (utama), biru (sekunder), oranye (aksen, hemat dipakai). Permukaan tetap dominan putih. */
+    --primary: #0e234e;
+    --primary-foreground: #ffffff;
+    --secondary: #2051b4; /* tautan, fokus, tombol sekunder */
+    --secondary-foreground: #ffffff;
+    --brand-orange: #ef8422;
+    --brand-orange-foreground: #0e234e;
+
+    /* Panel merek: SATU kartu utama per halaman (navy pekat, teks putih, garis bawah oranye) */
+    --panel: #0e234e;
+    --panel-foreground: #ffffff;
+
+    /* Watermark logo di belakang konten: setipis mungkin agar tidak mengganggu teks */
+    --watermark-opacity: 0.022;
+
+    /* Grafik: biru dan oranye merek = dua slot kategori (sudah divalidasi, terang dan gelap) */
+    --viz-1: #2051b4;
+    --viz-2: #ef8422;
+    --viz-neutral: #c5ccd9;
+    --viz-grid: #e3e8f1;
+    --viz-ink: #46536b;
+
+    /* Status. good = biru merek, warning = oranye merek, critical = merah. Varian -ink untuk TEKS. */
+    --good: #2051b4;
+    --good-ink: #1b459f;
+    --warning: #ef8422;
+    --warning-ink: #a8540a;
+    --critical: #d03b3b;
+    --critical-ink: #a02828;
+
+    /* Bentuk */
+    --radius-sm: 4px; /* badge status */
+    --radius-lg: 8px; /* input, tombol, item menu */
+    --radius-xl: 12px; /* kartu, modal, tabel */
+    --radius-2xl: 16px; /* kartu login */
+    --shadow-sm: 0 1px 2px rgb(15 27 51 / 0.06);
+    --shadow-md: 0 4px 10px rgb(15 27 51 / 0.1);
+    --shadow-lg: 0 10px 25px rgb(15 27 51 / 0.18);
+
+    /* Tata letak */
+    --sidebar-width: 16rem; /* 256px */
+    --header-height: 3.8125rem; /* 61px di HP, 65px dari md ke atas */
+    --page-max-width: 1600px;
+
+    /* Huruf. Sistem aslinya mendeklarasikan "Instrument Sans" tetapi tidak memuatnya, sehingga yang tampil
+       sebenarnya font bawaan perangkat (Segoe UI di Windows, SF di Apple, Roboto di Android). Tumpukan di bawah
+       sama dengan yang tampil di sistem aslinya. Opsional: muat Instrument Sans dari Google Fonts lalu taruh di depan. */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (min-width: 768px) {
+    :root {
+        --header-height: 4.0625rem;
+    }
+}
+
+/* Mode gelap: warna merek naik terang supaya tidak hilang di permukaan gelap */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        --background: #0a1020;
+        --foreground: #e6ebf5;
+        --card: #111a2e;
+        --border: #223052;
+        --muted-foreground: #94a3c0;
+        --accent: #19264a;
+        --destructive: #f87171;
+
+        --primary: #7ea4f0;
+        --primary-foreground: #0a1428;
+        --secondary: #6f98ec;
+        --secondary-foreground: #0a1428;
+        --brand-orange: #e8862a;
+        --brand-orange-foreground: #0a1428;
+        --panel: #1c3a7a;
+        --panel-foreground: #f1f5ff;
+        --watermark-opacity: 0.03;
+
+        --viz-1: #4f82e0;
+        --viz-2: #d4720f;
+        --viz-neutral: #3a4560;
+        --viz-grid: #223052;
+        --viz-ink: #c5cde0;
+
+        --good: #4f82e0;
+        --good-ink: #7ea4f0;
+        --warning: #d4720f;
+        --warning-ink: #f2a35c;
+        --critical-ink: #f87171;
+
+        --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+        --shadow-md: 0 4px 10px rgb(0 0 0 / 0.45);
+        --shadow-lg: 0 10px 25px rgb(0 0 0 / 0.55);
+        color-scheme: dark;
+    }
+}
+
+/* Pilihan tema manual (menang atas pengaturan perangkat) */
+:root[data-theme='dark'] {
+    --background: #0a1020;
+    --foreground: #e6ebf5;
+    --card: #111a2e;
+    --border: #223052;
+    --muted-foreground: #94a3c0;
+    --accent: #19264a;
+    --destructive: #f87171;
+
+    --primary: #7ea4f0;
+    --primary-foreground: #0a1428;
+    --secondary: #6f98ec;
+    --secondary-foreground: #0a1428;
+    --brand-orange: #e8862a;
+    --brand-orange-foreground: #0a1428;
+    --panel: #1c3a7a;
+    --panel-foreground: #f1f5ff;
+    --watermark-opacity: 0.03;
+
+    --viz-1: #4f82e0;
+    --viz-2: #d4720f;
+    --viz-neutral: #3a4560;
+    --viz-grid: #223052;
+    --viz-ink: #c5cde0;
+
+    --good: #4f82e0;
+    --good-ink: #7ea4f0;
+    --warning: #d4720f;
+    --warning-ink: #f2a35c;
+    --critical-ink: #f87171;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 10px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 10px 25px rgb(0 0 0 / 0.55);
+    color-scheme: dark;
+}
+
+/* Dasar */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Satu cincin fokus keyboard yang jelas di mana-mana */
+:where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--secondary);
+    outline-offset: 2px;
+}
+
+a {
+    color: var(--secondary);
+}
+
+/* Scrollbar tipis dan tenang untuk tabel lebar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}

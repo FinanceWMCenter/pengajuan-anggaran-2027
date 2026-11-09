@@ -1,0 +1,16 @@
+# Rahasia dan konfigurasi lokal (JANGAN di-commit)
+.env*
+*.local.sql
+secrets/
+
+# Backup database
+*.dump
+*.bak
+*.backup
+backup*/
+
+# Alat dan sistem
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/settings.json
