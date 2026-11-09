@@ -7,5 +7,5 @@
 //   SUPABASE_URL      = "Project URL", contoh: https://abcdefghijkl.supabase.co
 //   SUPABASE_ANON_KEY = "anon public" key (diawali eyJ...) atau "publishable" key (diawali sb_publishable_...)
 
-export const SUPABASE_URL = 'https://ISI-PROJECT-ID.supabase.co';
-export const SUPABASE_ANON_KEY = 'ISI-ANON-ATAU-PUBLISHABLE-KEY';
+export const SUPABASE_URL = 'https://ncglmqyxyyhcekxjpueb.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_8x_w93gzTNOrmSE32M578A_dFhPX56z';

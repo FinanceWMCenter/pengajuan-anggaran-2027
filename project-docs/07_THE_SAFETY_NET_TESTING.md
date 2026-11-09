@@ -177,3 +177,7 @@ Tujuan: memastikan SEMUA angka benar, dari subtotal baris sampai Overview Financ
 Termasuk qty desimal: 127,5 m2 x Rp55.000; 2,5 botol x Rp33.333 = Rp83.332,5 -> Rp83.333; 37,75 liter x Rp12.333 = Rp465.570,75 -> Rp465.571 (database, form, dan export sama).
 
 Cara mengulang: `tests/run_db_tests.ps1` (lokal, langkah 4 otomatis), atau tempel `tests/sql/reconcile.sql` di Supabase SQL Editor (hanya membaca; aman di PROD) -> semua baris harus "COCOK".
+
+## 12. Fase 3: uji keamanan di Supabase DEV (2026-11-09)
+
+Project `anggaran-2027-dev` (Singapore, Free). SQL 01-05, 06_bootstrap, 99_test_seed dijalankan via SQL Editor; `reconcile.sql` = SEMUA COCOK (1.406 angka). `tests/rest_security_check.ps1` dengan publishable key: **SEMUA CEK KEAMANAN LULUS** (S-01 baca 10 tabel ditolak, S-02 tulis ditolak, S-03 pin_hash tidak terbaca, fungsi internal tertutup, S-05 tanpa token/token acak ditolak). Web lokal memuat 12 divisi dari Supabase tanpa error (CSP + publishable key OK).

@@ -8,6 +8,7 @@
 --
 -- File ini TIDAK mengubah PIN. Atur PIN dengan 06_bootstrap.sql atau halaman Finance.
 -- Aman dijalankan ulang: data demo lama dihapus lalu dibuat ulang.
+-- Ditulis sebagai SATU perintah (tanpa tabel sementara) agar jalan di Supabase SQL Editor.
 -- Pengaman: berhenti bila ada program yang BUKAN data demo (mis. data asli).
 -- Hapus data demo / data uji sebelum go-live: 98_clear_test_data.sql
 -- =====================================================================
@@ -22,11 +23,10 @@ $$;
 
 delete from public.programs where created_by_name = 'Data Demo';
 
+with
+-- Program khusus per divisi.
 -- Format kebutuhan: ["uraian", "kategori baris", qty, "satuan", harga_satuan, "catatan" | null]
-drop table if exists _demo;
-create temporary table _demo (no serial, div text, nama text, kat text, bulan int, pic text, status text, items jsonb);
-
-insert into _demo (div, nama, kat, bulan, pic, status, items) values
+demo_khusus (div, nama, kat, bulan, pic, status, items) as (values
 -- HR-PD
 ('hr-pd', 'Training Service Excellence Batch 1', 'Training', 2, 'Dewi Lestari', 'diajukan', '[
   ["Honor trainer eksternal", "Honorarium / Narasumber", 2, "hari", 4500000, null],
@@ -229,18 +229,13 @@ insert into _demo (div, nama, kat, bulan, pic, status, items) values
   ["Akses jurnal online", "Software & Langganan", 1, "paket", 8500000, null],
   ["Buku referensi klinis", "ATK & Cetak", 10, "pcs", 650000, null]]'),
 ('physiotherapist', 'Perpanjangan STR & SIP Terapis', 'Perizinan, Legal & Kepatuhan', 10, 'Maya Anggraini, S.Ft', 'draft', '[
-  ["Biaya perpanjangan STR dan SIP", "Perizinan & Legal", 20, "orang", 350000, null]]');
-
--- ---------------------------------------------------------------------
+  ["Biaya perpanjangan STR dan SIP", "Perizinan & Legal", 20, "orang", 350000, null]]')
+),
 -- Program rutin per divisi agar SETIAP divisi punya program di SETIAP bulan.
 -- mode 'kosong' = hanya mengisi bulan yang belum ada programnya;
 -- mode 'semua'  = ada tiap bulan (jadi beberapa bulan berisi lebih dari 1 program).
 -- Qty item >= 4 sedikit bervariasi per bulan supaya angka tidak seragam.
--- ---------------------------------------------------------------------
-drop table if exists _tpl;
-create temporary table _tpl (no serial, div text, nama text, kat text, pic text, mode text, items jsonb);
-
-insert into _tpl (div, nama, kat, pic, mode, items) values
+tpl_raw (div, nama, kat, pic, mode, items) as (values
 ('hr-pd', 'Training Internal Terapis ({bulan})', 'Training', 'Andi Pratama', 'kosong', '[
   ["Honor trainer internal", "Honorarium / Narasumber", 1, "hari", 1500000, null],
   ["Konsumsi peserta", "Konsumsi", 30, "porsi", 45000, null],
@@ -283,64 +278,62 @@ insert into _tpl (div, nama, kat, pic, mode, items) values
 ('physiotherapist', 'Diskusi Kasus Klinis ({bulan})', 'Riset & Pengembangan Layanan', 'Maya Anggraini, S.Ft', 'kosong', '[
   ["Narasumber tamu", "Honorarium / Narasumber", 1, "orang", 1500000, null],
   ["Konsumsi diskusi", "Konsumsi", 25, "porsi", 40000, null],
-  ["Cetak materi kasus", "ATK & Cetak", 25, "pcs", 10000, null]]');
-
-insert into _demo (div, nama, kat, bulan, pic, status, items)
-select t.div,
-       replace(t.nama, '{bulan}', m.nama_bulan),
-       t.kat, m.b, t.pic,
-       case when (m.b * 5 + t.no) % 11 = 0 then 'draft' else 'diajukan' end,
-       (select jsonb_agg(case when (e.val ->> 2)::numeric >= 4
-                              then jsonb_set(e.val, '{2}', to_jsonb((e.val ->> 2)::numeric + (m.b % 3) * ceil((e.val ->> 2)::numeric * 0.1)))
-                              else e.val end order by e.ord)
-          from jsonb_array_elements(t.items) with ordinality as e(val, ord))
-from _tpl t
-cross join (values (1, 'Januari'), (2, 'Februari'), (3, 'Maret'), (4, 'April'), (5, 'Mei'), (6, 'Juni'),
-                   (7, 'Juli'), (8, 'Agustus'), (9, 'September'), (10, 'Oktober'), (11, 'November'), (12, 'Desember')) as m(b, nama_bulan)
-where t.mode = 'semua'
-   or not exists (select 1 from _demo x where x.div = t.div and x.bulan = m.b)
-order by t.no, m.b;
-
+  ["Cetak materi kasus", "ATK & Cetak", 25, "pcs", 10000, null]]')
+),
+tpl as (select row_number() over () as no, t.* from tpl_raw t),
+bulan (b, nama_bulan) as (values (1, 'Januari'), (2, 'Februari'), (3, 'Maret'), (4, 'April'), (5, 'Mei'), (6, 'Juni'),
+                                 (7, 'Juli'), (8, 'Agustus'), (9, 'September'), (10, 'Oktober'), (11, 'November'), (12, 'Desember')),
+khusus as (select row_number() over () as ord, k.* from demo_khusus k),
+rutin as (
+  select t.no * 100 + m.b as ord, t.div,
+         replace(t.nama, '{bulan}', m.nama_bulan) as nama,
+         t.kat, m.b as bulan, t.pic,
+         case when (m.b * 5 + t.no) % 11 = 0 then 'draft' else 'diajukan' end as status,
+         (select jsonb_agg(case when (e.val ->> 2)::numeric >= 4
+                                then jsonb_set(e.val, '{2}', to_jsonb((e.val ->> 2)::numeric + (m.b % 3) * ceil((e.val ->> 2)::numeric * 0.1)))
+                                else e.val end order by e.ord)
+            from jsonb_array_elements(t.items::jsonb) with ordinality as e(val, ord)) as items
+  from tpl t cross join bulan m
+  where t.mode = 'semua'
+     or not exists (select 1 from demo_khusus x where x.div = t.div and x.bulan = m.b)
+),
+demo as (
+  select row_number() over (order by src, ord) as no, div, nama, kat, bulan, pic, status, items
+  from (select 1 as src, ord, div, nama, kat, bulan, pic, status, items::jsonb as items from khusus
+        union all
+        select 2, ord, div, nama, kat, bulan, pic, status, items from rutin) u
+),
 -- Header program (tanggal pengajuan tersebar 2-9 November 2026, WIB)
-insert into public.programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama,
-                             status, tanggal_pengajuan, submitted_at, created_by_name, updated_by_name)
-select d.id, x.nama, pc.id, x.bulan, x.pic, x.status,
-       case when x.status = 'diajukan' then date '2026-11-02' + (x.no % 8) end,
-       case when x.status = 'diajukan' then ((date '2026-11-02' + (x.no % 8))::timestamp + time '08:30' + make_interval(mins => (x.no * 37) % 480)) at time zone 'Asia/Jakarta' end,
-       'Data Demo', x.pic
-from _demo x
-join public.divisions d on d.code = x.div
-join public.program_categories pc on pc.name = x.kat
-order by x.no;
-
+ins as (
+  insert into public.programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama,
+                               status, tanggal_pengajuan, submitted_at, created_by_name, updated_by_name)
+  select d.id, x.nama, pc.id, x.bulan, x.pic, x.status,
+         case when x.status = 'diajukan' then date '2026-11-02' + (x.no::int % 8) end,
+         case when x.status = 'diajukan' then ((date '2026-11-02' + (x.no::int % 8))::timestamp + time '08:30' + make_interval(mins => (x.no::int * 37) % 480)) at time zone 'Asia/Jakarta' end,
+         'Data Demo', x.pic
+  from demo x
+  join public.divisions d on d.code = x.div
+  join public.program_categories pc on pc.name = x.kat
+  returning id, division_id, nama_program, periode_bulan, status
+),
 -- Baris kebutuhan
-insert into public.program_items (program_id, urutan, uraian, item_category_id, qty, satuan, harga_satuan, catatan)
-select p.id, e.ord, e.val ->> 0, ic.id, (e.val ->> 2)::numeric, e.val ->> 3, (e.val ->> 4)::bigint, e.val ->> 5
-from _demo x
-join public.divisions d on d.code = x.div
-join public.programs p on p.division_id = d.id and p.nama_program = x.nama and p.periode_bulan = x.bulan and p.created_by_name = 'Data Demo'
-cross join lateral jsonb_array_elements(x.items) with ordinality as e(val, ord)
-left join public.item_categories ic on ic.name = e.val ->> 1;
-
--- Pemeriksaan: semua kategori di data demo harus cocok dengan master
-do $$
-begin
-  if (select count(*) from _demo) <> (select count(*) from public.programs where created_by_name = 'Data Demo') then
-    raise exception 'Ada program demo yang tidak masuk (kategori program/divisi tidak cocok).';
-  end if;
-  if exists (select 1 from _demo x cross join lateral jsonb_array_elements(x.items) e
-             where e ->> 1 is not null and not exists (select 1 from public.item_categories c where c.name = e ->> 1)) then
-    raise exception 'Ada kategori baris di data demo yang tidak cocok dengan master.';
-  end if;
-end;
-$$;
-
-drop table if exists _demo;
-drop table if exists _tpl;
-
+ins_items as (
+  insert into public.program_items (program_id, urutan, uraian, item_category_id, qty, satuan, harga_satuan, catatan)
+  select p.id, e.ord, e.val ->> 0, ic.id, (e.val ->> 2)::numeric, e.val ->> 3, (e.val ->> 4)::bigint, e.val ->> 5
+  from demo x
+  join public.divisions d on d.code = x.div
+  join ins p on p.division_id = d.id and p.nama_program = x.nama and p.periode_bulan = x.bulan
+  cross join lateral jsonb_array_elements(x.items) with ordinality as e(val, ord)
+  left join public.item_categories ic on ic.name = e.val ->> 1
+  returning program_id, subtotal
+)
 select 'Data demo selesai' as status,
-       (select count(*) from public.programs where created_by_name = 'Data Demo') as jumlah_program,
-       (select count(*) from public.programs where created_by_name = 'Data Demo' and status = 'draft') as draft,
-       (select count(*) from public.program_items i join public.programs p on p.id = i.program_id where p.created_by_name = 'Data Demo') as jumlah_baris,
-       (select sum(i.subtotal) from public.program_items i join public.programs p on p.id = i.program_id
-         where p.created_by_name = 'Data Demo' and p.status = 'diajukan') as total_diajukan;
+       (select count(*) from ins) as jumlah_program,
+       (select count(*) from ins where status = 'draft') as draft,
+       (select count(*) from ins_items) as jumlah_baris,
+       (select sum(i.subtotal) from ins_items i join ins p on p.id = i.program_id where p.status = 'diajukan') as total_diajukan,
+       case when (select count(*) from ins) = (select count(*) from demo)
+             and (select count(*) from ins_items) = (select count(*) from demo x cross join lateral jsonb_array_elements(x.items) e)
+             and not exists (select 1 from demo x cross join lateral jsonb_array_elements(x.items) e
+                             where e ->> 1 is not null and not exists (select 1 from public.item_categories c where c.name = e ->> 1))
+            then 'OK' else 'PERIKSA: ada data demo yang tidak cocok dengan master' end as cek;

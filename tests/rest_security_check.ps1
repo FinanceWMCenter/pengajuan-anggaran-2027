@@ -25,8 +25,16 @@ function Call([string]$Method, [string]$Path, [string]$Body = $null) {
   } catch {
     $resp = $_.Exception.Response
     if ($resp) {
-      $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
-      return @{ Status = [int]$resp.StatusCode; Body = $reader.ReadToEnd() }
+      # PowerShell 5.1: isi jawaban error ada di ErrorDetails; cadangan: baca ulang stream dari awal
+      $body = $_.ErrorDetails.Message
+      if (-not $body) {
+        try {
+          $stream = $resp.GetResponseStream()
+          if ($stream.CanSeek) { $stream.Position = 0 }
+          $body = (New-Object System.IO.StreamReader($stream)).ReadToEnd()
+        } catch { $body = '' }
+      }
+      return @{ Status = [int]$resp.StatusCode; Body = [string]$body }
     }
     return @{ Status = 0; Body = $_.Exception.Message }
   }
