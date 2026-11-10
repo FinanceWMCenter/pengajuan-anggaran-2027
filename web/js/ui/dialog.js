@@ -21,13 +21,20 @@ export function openDialog({ title, description, body, actions = [], dismissible
     const previousFocus = document.activeElement;
     const titleId = `dlg-title-${Math.random().toString(36).slice(2, 8)}`;
     const descId = description ? `${titleId}-desc` : null;
+    const openedAt = Date.now();
+    let closed = false;
+    let validating = false;
 
     const buttons = actions.map((a) => h('button', {
       type: 'button',
       class: `wm-btn ${a.variant ? `wm-btn-${a.variant}` : 'wm-btn-outline'}`,
       onclick: async () => {
+        // Klik dobel: tombol tidak dieksekusi dua kali (BUG-021)
+        if (closed || validating) return;
         if (a.validate) {
-          const ok = await a.validate();
+          validating = true;
+          let ok = false;
+          try { ok = await a.validate(); } finally { validating = false; }
           if (!ok) return;
         }
         close(a.value);
@@ -62,12 +69,16 @@ export function openDialog({ title, description, body, actions = [], dismissible
     }
 
     overlay.addEventListener('mousedown', (e) => {
+      // Klik kedua dari klik dobel yang membuka dialog jatuh ke latar: jangan langsung menutup (BUG-021)
+      if (Date.now() - openedAt < 400) return;
       if (e.target === overlay || e.target === overlay.firstChild) {
         if (dismissible) close(null);
       }
     });
 
     function close(value) {
+      if (closed) return;
+      closed = true;
       document.removeEventListener('keydown', onKey, true);
       overlay.remove();
       openCount -= 1;

@@ -279,7 +279,7 @@
     padding: 1rem; box-shadow: var(--shadow-sm);
 }
 @media (min-width: 640px) { .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1024px) { .filter-bar { grid-template-columns: minmax(0, 2fr) repeat(auto-fit, minmax(9rem, 1fr)); } }
+@media (min-width: 1024px) { .filter-bar { grid-template-columns: minmax(0, 1.5fr) repeat(auto-fit, minmax(9.5rem, 1fr)); } }
 .filter-bar .wm-input, .filter-bar .wm-select { background: var(--card); }
 .filter-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.875rem; color: var(--muted-foreground); }
 
@@ -292,6 +292,16 @@
 .wm-table tr.is-highlight:hover { background: color-mix(in srgb, var(--brand-orange) 16%, transparent); }
 .wm-table .cell-name { font-weight: 500; min-width: 12rem; }
 .wm-table td.cell-bar { min-width: 8rem; width: 30%; }
+/* Laptop umum (1280-1599px): tabel lebih rapat supaya kolom Aksi (Hapus) tidak terpotong/ harus digeser (BUG-022) */
+@media (max-width: 1599.98px) {
+  .wm-table th, .wm-table td, .wm-table tfoot td { padding-left: 0.625rem; padding-right: 0.625rem; }
+  .wm-table td.cell-actions .wm-btn-text + .wm-btn-text { margin-left: 0.5rem; }
+  .wm-table .cell-name { min-width: 10rem; }
+  .wm-table td.cell-bar { min-width: 6rem; }
+}
+@media (max-width: 1365.98px) {
+  .wm-table th, .wm-table td, .wm-table tfoot td { padding-left: 0.5rem; padding-right: 0.5rem; }
+}
 .table-bar { height: 0.625rem; border-radius: 0.25rem; background: var(--viz-1); min-width: 2px; }
 .table-bar.is-2 { background: var(--viz-2); }
 .table-empty { padding: 2rem 1rem; text-align: center; color: var(--muted-foreground); }

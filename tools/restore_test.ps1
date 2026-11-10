@@ -61,6 +61,18 @@ if ($errors.Count -gt 0) {
   exit 1
 }
 
+# Backup sengaja dibuat tanpa hak akses (--no-privileges). Setelah restore, aturan keamanan WAJIB dipasang ulang
+# dengan 04_security.sql; tanpa itu fungsi internal (_...) bisa dipanggil siapa saja (lihat BUG-023).
+Write-Host "2b) Memasang ulang aturan keamanan (04_security.sql) ..." -ForegroundColor Cyan
+Invoke-Psql @("-d", $Database, "-o", "NUL", "-f", (Join-Path $root "db\04_security.sql"))
+$terbuka = & $psql -h localhost -p $Port -U $User -w -d $Database -t -A -c "select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname like '\_%' and has_function_privilege('anon', p.oid, 'execute')"
+if ("$terbuka".Trim() -ne "0") {
+  Write-Host "KEAMANAN BELUM TERPASANG: $terbuka fungsi internal masih bisa dipanggil publik." -ForegroundColor Red
+  Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+  exit 1
+}
+Write-Host "   Aturan keamanan terpasang (fungsi internal tertutup untuk publik)." -ForegroundColor Green
+
 Write-Host "3) Memeriksa isi ..." -ForegroundColor Cyan
 & $psql -h localhost -p $Port -U $User -w -d $Database -c "select (select count(*) from public.division_groups) as grup, (select count(*) from public.divisions) as divisi, (select count(*) from public.programs) as program, (select count(*) from public.program_items) as baris, (select count(*) from public.audit_log) as log, to_char((select coalesce(sum(i.subtotal),0) from public.program_items i join public.programs p on p.id = i.program_id where p.status = 'diajukan'), 'FM999G999G999G999G990') as total_diajukan;"
 

@@ -635,8 +635,19 @@ export async function programFormView(main, ctx) {
   }
 
   // ---- Simpan (draft / submit / simpan perubahan) ----
+  // Kunci sejak tombol ditekan sampai selesai (termasuk selama dialog konfirmasi terbuka),
+  // supaya klik dobel / ketukan ganda tidak pernah menyimpan dua kali (BUG-021).
   async function save(isSubmit, btn) {
     if (state.busy) return;
+    state.busy = true;
+    try {
+      await doSave(isSubmit, btn);
+    } finally {
+      state.busy = false;
+    }
+  }
+
+  async function doSave(isSubmit, btn) {
     const full = isSubmit || submitted;
 
     const hErr = validateHeader(state.header, allowedProgramCats);
@@ -707,7 +718,6 @@ export async function programFormView(main, ctx) {
       }),
     };
 
-    state.busy = true;
     setLoading(btn, true);
     try {
       const res = await rpc('rpc_save_program', { p_payload: payload });
@@ -737,7 +747,6 @@ export async function programFormView(main, ctx) {
     } catch (e) {
       handleSaveError(e, sent);
     } finally {
-      state.busy = false;
       setLoading(btn, false);
     }
   }

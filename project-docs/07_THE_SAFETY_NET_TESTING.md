@@ -205,3 +205,31 @@ Simulasi pembaruan DEV (database versi sebelumnya -> 02, 06, 99 baru): 06 hanya 
 | R-03 | Lulus | `tools/backup.ps1` dari Supabase DEV (Session pooler): 10 tabel, 119 KB, disimpan di `Dokumen\Backup-Anggaran2027` (di luar repo) |
 | R-04 | Lulus | `tools/restore_test.ps1`: backup asli dipulihkan ke Postgres lokal; 172 program, 437 baris, 31 log, total diajukan Rp3.455.406.404; reconcile 1.541 angka SEMUA COCOK |
 | R-05..R-07 | Belum | Saat persiapan PROD |
+
+## 16. UAT "trial & error" oleh Claude pada salinan data DEV, 2026-11-10
+
+Pengganti UAT divisi pilot (Finance tidak sempat melibatkan divisi). Dijalankan pada **salinan persis DEV** (hasil restore backup asli + 04 + PIN uji lokal), bukan di Supabase, supaya data DEV tidak terganggu.
+
+| Uji | Hasil |
+|---|---|
+| Kode database DEV vs repo | 41 fungsi, 67 kolom, 82 constraint, trigger, RLS 10/10 sama persis |
+| E2E lama (94 cek) pada data dummy & salinan DEV | 94/94 dan 94/94 |
+| Audit angka tampilan vs database (13 divisi + Finance) | 4.020 angka, selisih 0 |
+| Pembulatan subtotal layar vs database | 30.013 pasang angka (termasuk kasus x,5) sama persis |
+| Cara ketik qty/harga (2,5 / 2.500 / Rp 1.500.000 / 1,5jt) | Dikenali benar; yang tidak valid ditolak |
+| Form dengan angka rawan (6 baris): layar = dialog = database = detail | Sama |
+| Salah ketik angka raksasa | Ditolak: "Total program terlalu besar" |
+| Klik dobel (mouse sungguhan & program) Submit/Kirim/Draft/Hapus | 1 dialog, 1 program (setelah BUG-021) |
+| Edit bersamaan di 2 tab | Tab kedua diperingatkan, tidak menimpa; "Muat ulang" menampilkan versi terbaru |
+| Koneksi putus saat simpan | Pesan koneksi, isian tetap; setelah pulih tersimpan 1x |
+| Batas isian (nama 150, qty >100.000, qty 0, 3 desimal, emoji/kutip) | Sesuai |
+| Draft lama disubmit | Tanggal pengajuan = hari submit (WIB) |
+| Kategori dinonaktifkan | Program lama tetap tampil & bisa disimpan; tidak bisa dipilih di program baru |
+| Divisi tanpa program | Ringkasan & Overview rapi, tanpa NaN/undefined |
+| Token sesi dirusak / Keluar lalu Back | Diminta PIN lagi, data tidak tampil |
+| Ganti PIN Finance & reset PIN divisi bentrok | PIN lama salah/bentrok/ulangan beda ditolak; PIN baru berlaku |
+| Semua halaman Finance + 13 divisi di HP 390px | Tanpa teks rusak, tanpa geser samping |
+| Tabel di laptop 1280-1920px | Semua kolom terlihat (setelah BUG-022) |
+| Restore + keamanan | 04 dipasang ulang otomatis (BUG-023) |
+
+Total UAT baru: 63/63 lulus. Tes SQL 143 lulus; utils 38/38.

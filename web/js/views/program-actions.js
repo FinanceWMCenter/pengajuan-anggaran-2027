@@ -6,8 +6,20 @@ import { confirmDialog, reasonDialog } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { isFinance } from '../session.js';
 
-/** @returns {Promise<boolean>} true bila terhapus */
+let deleting = false;
+
+/** @returns {Promise<boolean>} true bila terhapus. Klik dobel tidak membuka dua dialog (BUG-021). */
 export async function deleteProgram(program) {
+  if (deleting) return false;
+  deleting = true;
+  try {
+    return await deleteProgramOnce(program);
+  } finally {
+    deleting = false;
+  }
+}
+
+async function deleteProgramOnce(program) {
   const summary = h('dl', { class: 'dialog-summary' },
     h('dt', null, 'Program'), h('dd', null, program.nama_program),
     program.division_name ? [h('dt', null, 'Divisi'), h('dd', null, program.division_name)] : null,

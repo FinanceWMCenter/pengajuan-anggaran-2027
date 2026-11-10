@@ -104,6 +104,7 @@ powershell -ExecutionPolicy Bypass -File tests\rest_security_check.ps1 -Url "htt
    powershell -ExecutionPolicy Bypass -File tools\restore_test.ps1
    ```
    Memulihkan backup terbaru ke Postgres lokal (database `anggaran_restore`) lalu menjalankan audit angka; hasil harus **RESTORE BERHASIL** + SEMUA COCOK. Butuh password Postgres lokal (bila lupa, minta Claude menjalankannya atau memandu reset).
+4. **Pemulihan sungguhan ke Supabase** (hanya bila data rusak/hilang; minta Claude memandu): pulihkan file backup ke project Supabase, lalu **wajib** jalankan ulang `db/04_security.sql` di SQL Editor (backup tidak membawa hak akses; tanpa langkah ini fungsi internal terbuka untuk publik), lalu `tests/rest_security_check.ps1` harus SEMUA LULUS sebelum web dipakai lagi.
 
 ## J. Checklist go-live
 - [ ] Semua tes P0 lulus (file 07); `tests/rest_security_check.ps1` lulus di PROD; S-14 (tidak ada secret di repo) diulang.
