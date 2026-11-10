@@ -233,3 +233,20 @@ Pengganti UAT divisi pilot (Finance tidak sempat melibatkan divisi). Dijalankan 
 | Restore + keamanan | 04 dipasang ulang otomatis (BUG-023) |
 
 Total UAT baru: 63/63 lulus. Tes SQL 143 lulus; utils 38/38.
+
+## 17. Animasi selamat datang (D-41), 2026-11-10
+
+| Uji | Hasil |
+|---|---|
+| Divisi: "Selamat datang, HR-PD" + "Human Resource · Anggaran 2027"; halaman divisi dimuat di belakang | Lulus |
+| Selesai sendiri < 3,6 detik; setelahnya halaman bisa diklik (tidak ada lapisan tertinggal) | Lulus |
+| Klik / tombol keyboard saat animasi -> langsung menutup | Lulus |
+| Finance: "Selamat datang, Finance" -> Overview Finance | Lulus |
+| PIN salah: tidak ada animasi | Lulus |
+| HP 390px, nama panjang (Brand and Communication): tidak terpotong di tengah kata | Lulus |
+| "Kurangi gerakan": versi fade < 2 detik | Lulus |
+| Masuk lewat tautan form (sesi habis saat mengisi): tanpa animasi, langsung ke form | Lulus |
+| Tautan Overview: animasi lalu ke halaman tujuan | Lulus |
+| Tanpa error JavaScript (termasuk mode gelap) | Lulus |
+
+17/17 lulus. Regresi: e2e 94/94 (data dummy & salinan DEV), UAT 63/63, audit tampilan 4.020 angka selisih 0, utils 38/38.

@@ -9,6 +9,7 @@ import { getDivisions } from '../store.js';
 import { createPinPad } from '../ui/pin-pad.js';
 import { contactLinks } from '../ui/components.js';
 import { toast } from '../ui/toast.js';
+import { playWelcome } from '../ui/welcome.js';
 import { navigate, onCleanup } from '../router.js';
 
 /** Halaman awal untuk sesi yang sudah masuk. */
@@ -38,6 +39,7 @@ export async function loginView(main, ctx) {
   });
 
   const existing = getSession();
+  const groupByCode = new Map(); // untuk teks kecil di animasi selamat datang (diisi saat daftar divisi dimuat)
   let note = null;
   if (ctx.wanted && existing && existing.role === 'division') {
     note = h('p', { class: 'login-note' }, icon('info', 'ic-sm'), ` Anda sedang masuk sebagai ${existing.division.name}. Halaman ini milik ${ctx.wanted.name}; masukkan PIN ${ctx.wanted.name} untuk membukanya.`);
@@ -65,6 +67,14 @@ export async function loginView(main, ctx) {
       const target = ctx.returnTo && canOpen(s, ctx.returnTo) ? ctx.returnTo : homePathFor(s);
       if (ctx.returnTo && target !== ctx.returnTo && s.role === 'division') {
         toast(`PIN ini milik ${s.division.name}. Anda masuk ke ${s.division.name}.`, 'info');
+      }
+      // Animasi selamat datang (D-41), kecuali saat kembali ke form yang sedang diisi (sesi habis di tengah)
+      if (!/\/(new|edit)(\?|$)/.test(target)) {
+        try {
+          playWelcome(s.role === 'finance'
+            ? { name: 'Finance', sub: 'Akses semua divisi' }
+            : { name: s.division.name, sub: groupByCode.get(s.division.code) });
+        } catch { /* hiasan saja: abaikan */ }
       }
       navigate(target, { replace: true, force: true });
       return { ok: true };
@@ -97,6 +107,7 @@ export async function loginView(main, ctx) {
   // Pita nama divisi (dekoratif). Gagal memuat = pita disembunyikan, login tetap berjalan.
   try {
     const groups = await getDivisions();
+    groups.forEach((g) => (g.divisions || []).forEach((d) => groupByCode.set(d.code, g.name)));
     const names = groups.flatMap((g) => (g.divisions || []).map((d) => d.name));
     buildMarquee(marquee, names);
   } catch {

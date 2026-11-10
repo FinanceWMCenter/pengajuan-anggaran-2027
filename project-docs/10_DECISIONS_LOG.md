@@ -45,6 +45,7 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | D-38 | (2026-11-10) **Login PIN langsung** (seperti SSO): tidak ada lagi pilih divisi. Satu halaman masuk; PIN 6 digit menentukan akun (divisi atau Finance). **PIN Finance menjadi 6 digit** (sama cara masuknya). Semua PIN wajib unik; PIN kembar ditolak saat diatur, dan bila ada PIN kembar lama, login ditolak (tidak pernah salah masuk divisi). Konsekuensi diterima Finance: tebakan PIN acak sekitar 12x lebih mudah (D-27). Menggantikan A-01 (pilih divisi di Home) dan A-14 (Finance 8 digit) |
 | D-39 | (2026-11-10) Halaman masuk dihias **pita nama divisi berjalan** dari kanan ke kiri (pelan, berhenti saat disentuh/disorot, diam bila perangkat meminta "kurangi gerakan", diabaikan pembaca layar). Layar lebar 2 kolom, HP/tablet bertumpuk; komposisi & responsif dicek di 360px, 768px, 1366x650, 1920px, mode gelap |
 | D-40 | (2026-11-10) **Divisi ke-13: Project Expansion**, berdiri sendiri di grup "Project Expansion" (tidak di bawah HR/grup lain). Total 13 divisi dalam 8 grup. Menambah D-08 |
+| D-41 | (2026-11-10) **Animasi selamat datang setelah PIN benar** (opsi D pilihan Finance): buka seperti gerbang (dua panel navy menutup, logo putih, centang oranye, nama divisi + grup huruf demi huruf), tutup dengan layar menyusut menjadi bulatan ke ikon akun di kanan atas lalu ikon berdenyut oranye. Dipercepat ~18% (+/- 2,5 detik total). Halaman tujuan dimuat di belakang selama animasi. Bisa dilewati (klik/tombol apa pun); "kurangi gerakan" = fade singkat; tidak tampil saat kembali ke form (sesi habis/tautan form); lapisan dibuang otomatis maks. 6 detik. Hanya tampilan (`web/js/ui/welcome.js`), tanpa perubahan database |
 
 ## A - Asumsi Claude/ penyusun (belum dikonfirmasi; ubah bila salah)
 | ID | Asumsi | Dampak jika salah |
@@ -112,3 +113,4 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | 2026-11-09 | Pembangunan Fase 1-11 (bagian lokal): tambah D-36, D-37, T-07..T-13 |
 | 2026-11-10 | Login PIN langsung + pita divisi: D-38, D-39, T-14, T-15; A-14 diganti |
 | 2026-11-10 | D-40: divisi Project Expansion |
+| 2026-11-10 | D-41: animasi selamat datang (opsi D) |

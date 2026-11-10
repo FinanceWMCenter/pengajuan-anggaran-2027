@@ -492,3 +492,30 @@ body.has-modal { overflow: hidden; }
 /* ---------- Halaman pemuatan & galat ---------- */
 .page-loading { padding: 3rem 1rem; text-align: center; color: var(--muted-foreground); }
 .page-error { max-width: 36rem; margin: 3rem auto; }
+
+/* ---------- Animasi selamat datang setelah PIN benar (D-41, web/js/ui/welcome.js) ---------- */
+.welcome { position: fixed; inset: 0; z-index: 100; cursor: pointer; color: #fff; -webkit-tap-highlight-color: transparent; }
+.welcome.is-closing { pointer-events: none; }
+.welcome-layer { position: absolute; inset: 0; }
+.welcome-half { position: absolute; top: 0; bottom: 0; width: 50.5%; }
+.welcome-half.is-left { left: 0; transform: translateX(-101%); background: linear-gradient(135deg, #0e234e, #16306a); }
+.welcome-half.is-right { right: 0; transform: translateX(101%); background: linear-gradient(225deg, #0e234e, #16306a); }
+.welcome-content { position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; text-align: center; opacity: 0; }
+.welcome-inner { display: grid; justify-items: center; gap: 0.625rem; }
+.welcome-logo { height: 52px; width: auto; opacity: 0; }
+.welcome-ring-bg { stroke: rgba(255, 255, 255, 0.18); stroke-width: 3; }
+.welcome-ring { stroke: #ef8422; stroke-width: 3; stroke-linecap: round; }
+.welcome-tick { stroke: #fff; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.welcome-hello { font-size: 1rem; letter-spacing: 0.02em; opacity: 0; }
+.welcome-name { font-size: clamp(1.75rem, 4.2vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; max-width: 16ch; }
+.welcome-word { display: inline-block; white-space: nowrap; }
+.welcome-ch { display: inline-block; white-space: pre; opacity: 0; }
+.welcome-sub { font-size: 0.875rem; opacity: 0; }
+.welcome-skip { position: absolute; right: 1rem; bottom: 0.875rem; font-size: 0.75rem; opacity: 0.6; }
+/* Mode "kurangi gerakan": latar biru diam + teks langsung tampil, hanya fade */
+.welcome.is-reduced { background: #0e234e; }
+.welcome.is-reduced .welcome-half { display: none; }
+.welcome.is-reduced .welcome-content, .welcome.is-reduced .welcome-logo, .welcome.is-reduced .welcome-ch { opacity: 1; }
+.welcome.is-reduced .welcome-hello { opacity: 0.8; }
+.welcome.is-reduced .welcome-sub { opacity: 0.75; }
+.welcome.is-reduced .welcome-ring, .welcome.is-reduced .welcome-tick { stroke-dashoffset: 0; }
