@@ -63,6 +63,65 @@ begin
 end;
 $$;
 
+-- Hash PIN (T-14): bcrypt tingkat 6 supaya login "PIN langsung" (1 PIN dicek ke 13 akun) tetap cepat.
+-- Untuk PIN 6 digit, tingkat hash praktis tidak mengubah keamanan; hash tidak pernah keluar dari database.
+create or replace function public._pin_hash(p_pin text)
+returns text
+language sql
+volatile
+set search_path = public, extensions
+as $$
+  select extensions.crypt(p_pin, extensions.gen_salt('bf', 6));
+$$;
+
+-- Semua akun yang PIN-nya cocok dengan p_pin: Finance dan divisi (aktif maupun nonaktif).
+-- Dipakai login PIN langsung (D-38) dan pengecekan PIN unik.
+create or replace function public._pin_owners(p_pin text)
+returns table (kind text, division_id smallint, is_active boolean)
+language sql
+stable
+set search_path = public, extensions
+as $$
+  select 'finance'::text, null::smallint, true
+  from public.app_settings s
+  where s.key = 'finance_pin_hash' and s.value = extensions.crypt(p_pin, s.value)
+  union all
+  select 'division'::text, d.id, d.is_active
+  from public.divisions d
+  where d.pin_hash is not null and d.pin_hash = extensions.crypt(p_pin, d.pin_hash);
+$$;
+
+-- p_count PIN acak 6 digit yang berbeda satu sama lain.
+-- p_check_existing = true: juga tidak boleh sama dengan PIN yang sudah dipakai akun mana pun.
+create or replace function public._new_unique_pins(p_count int, p_check_existing boolean)
+returns text[]
+language plpgsql
+volatile
+set search_path = public, extensions
+as $$
+declare
+  v_out   text[] := '{}';
+  v       text;
+  v_guard int := 0;
+begin
+  while coalesce(array_length(v_out, 1), 0) < p_count loop
+    v_guard := v_guard + 1;
+    if v_guard > p_count * 1000 + 100 then
+      perform public._fail('Gagal membuat PIN unik');
+    end if;
+    v := public._random_digits(6);
+    if v = any (v_out) then
+      continue;
+    end if;
+    if p_check_existing and exists (select 1 from public._pin_owners(v)) then
+      continue;
+    end if;
+    v_out := v_out || v;
+  end loop;
+  return v_out;
+end;
+$$;
+
 create or replace function public._to_uuid(p_text text)
 returns uuid
 language plpgsql
@@ -368,7 +427,70 @@ begin
 end;
 $$;
 
--- Login Finance (master PIN 8 digit - A-14)
+-- Login PIN langsung (D-38): cukup ketik PIN 6 digit, sistem menentukan akunnya (divisi atau Finance).
+-- PIN dijamin unik oleh rpc_f_set_division_pin / rpc_f_set_master_pin / 06 / 07. Bila ternyata kembar,
+-- login ditolak (PIN_DUPLICATE) supaya tidak pernah salah masuk ke divisi lain.
+create or replace function public.rpc_login_pin(p_pin text, p_actor_name text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_name  text := nullif(left(btrim(coalesce(p_actor_name, '')), 100), '');
+  v_n     int;
+  v_kind  text;
+  v_div   smallint;
+  d       public.divisions;
+  v_token text;
+  v_exp   timestamptz := now() + interval '8 hours';
+begin
+  if p_pin is null or p_pin !~ '^[0-9]{6}$' then
+    insert into public.login_attempts (scope, succeeded) values ('pin', false);
+    perform pg_sleep(0.5);  -- jeda singkat, tanpa mengunci (D-28)
+    return jsonb_build_object('ok', false, 'error', 'PIN_WRONG');
+  end if;
+
+  select count(*), min(o.kind), min(o.division_id)
+    into v_n, v_kind, v_div
+  from public._pin_owners(p_pin) o
+  where o.is_active;
+
+  if v_n = 0 then
+    insert into public.login_attempts (scope, succeeded) values ('pin', false);
+    perform pg_sleep(0.5);
+    return jsonb_build_object('ok', false, 'error', 'PIN_WRONG');
+  end if;
+  if v_n > 1 then
+    insert into public.login_attempts (scope, succeeded) values ('pin-kembar', false);
+    return jsonb_build_object('ok', false, 'error', 'PIN_DUPLICATE');
+  end if;
+
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
+
+  if v_kind = 'finance' then
+    insert into public.sessions (token_hash, role, division_id, actor_name, expires_at)
+    values (public._hash_token(v_token), 'finance', null, v_name, v_exp);
+    insert into public.login_attempts (scope, succeeded) values ('finance', true);
+    return jsonb_build_object('ok', true, 'token', v_token, 'role', 'finance', 'actor_name', v_name, 'expires_at', v_exp);
+  end if;
+
+  select * into d from public.divisions where id = v_div;
+  insert into public.sessions (token_hash, role, division_id, actor_name, expires_at)
+  values (public._hash_token(v_token), 'division', d.id, v_name, v_exp);
+  insert into public.login_attempts (scope, succeeded) values (d.code, true);
+  return jsonb_build_object(
+    'ok', true,
+    'token', v_token,
+    'role', 'division',
+    'division', jsonb_build_object('id', d.id, 'code', d.code, 'name', d.name),
+    'actor_name', v_name,
+    'expires_at', v_exp
+  );
+end;
+$$;
+
+-- Login Finance lama (dipertahankan untuk kompatibilitas; web sekarang memakai rpc_login_pin)
 create or replace function public.rpc_login_finance(p_pin text, p_actor_name text default null)
 returns jsonb
 language plpgsql
@@ -386,7 +508,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'PIN_NOT_SET');
   end if;
 
-  if p_pin is null or p_pin !~ '^[0-9]{8}$' or v_hash <> extensions.crypt(p_pin, v_hash) then
+  if p_pin is null or p_pin !~ '^[0-9]{6,8}$' or v_hash <> extensions.crypt(p_pin, v_hash) then
     insert into public.login_attempts (scope, succeeded) values ('finance', false);
     perform pg_sleep(1);
     return jsonb_build_object('ok', false, 'error', 'PIN_WRONG');
@@ -864,9 +986,14 @@ begin
   if p_new_pin is null or p_new_pin !~ '^[0-9]{6}$' then
     perform public._fail('VALIDATION:pin:PIN divisi harus 6 digit angka');
   end if;
+  -- PIN harus unik: tidak boleh sama dengan PIN divisi lain atau PIN Finance (D-38)
+  if exists (select 1 from public._pin_owners(p_new_pin) o
+             where o.kind = 'finance' or o.division_id is distinct from d.id) then
+    perform public._fail('VALIDATION:pin:PIN ini sudah dipakai divisi lain atau Finance. Pilih PIN lain.');
+  end if;
 
   update public.divisions
-     set pin_hash = extensions.crypt(p_new_pin, extensions.gen_salt('bf', 10)),
+     set pin_hash = public._pin_hash(p_new_pin),
          pin_updated_at = now()
    where id = d.id;
   delete from public.sessions where division_id = d.id;
@@ -878,7 +1005,7 @@ begin
 end;
 $$;
 
--- Ganti master PIN Finance (8 digit). Sesi Finance lain dicabut.
+-- Ganti PIN Finance (6 digit, D-38; PIN lama boleh 6-8 digit). Sesi Finance lain dicabut.
 create or replace function public.rpc_f_set_master_pin(p_token text, p_old_pin text, p_new_pin text)
 returns jsonb
 language plpgsql
@@ -892,17 +1019,20 @@ begin
   select value into v_hash from public.app_settings where key = 'finance_pin_hash' for update;
   if v_hash is null or p_old_pin is null or v_hash <> extensions.crypt(p_old_pin, v_hash) then
     perform pg_sleep(1);
-    perform public._fail('VALIDATION:old_pin:Master PIN lama salah');
+    perform public._fail('VALIDATION:old_pin:PIN Finance lama salah');
   end if;
-  if p_new_pin is null or p_new_pin !~ '^[0-9]{8}$' then
-    perform public._fail('VALIDATION:new_pin:Master PIN baru harus 8 digit angka');
+  if p_new_pin is null or p_new_pin !~ '^[0-9]{6}$' then
+    perform public._fail('VALIDATION:new_pin:PIN Finance baru harus 6 digit angka');
   end if;
   if p_new_pin = p_old_pin then
-    perform public._fail('VALIDATION:new_pin:Master PIN baru harus berbeda dari yang lama');
+    perform public._fail('VALIDATION:new_pin:PIN Finance baru harus berbeda dari yang lama');
+  end if;
+  if exists (select 1 from public._pin_owners(p_new_pin) o where o.kind = 'division') then
+    perform public._fail('VALIDATION:new_pin:PIN ini sudah dipakai salah satu divisi. Pilih PIN lain.');
   end if;
 
   update public.app_settings
-     set value = extensions.crypt(p_new_pin, extensions.gen_salt('bf', 10)), updated_at = now()
+     set value = public._pin_hash(p_new_pin), updated_at = now()
    where key = 'finance_pin_hash';
   delete from public.sessions where role = 'finance' and token_hash <> s.token_hash;
 

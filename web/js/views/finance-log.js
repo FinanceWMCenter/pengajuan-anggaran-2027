@@ -8,7 +8,7 @@ import { openDialog } from '../ui/dialog.js';
 
 const ACTIONS = {
   create: 'Buat draft', update: 'Ubah', submit: 'Submit', delete: 'Hapus', pin_reset: 'Atur/reset PIN',
-  master_pin_change: 'Ganti master PIN', category_change: 'Ubah kategori', export: 'Export',
+  master_pin_change: 'Ganti PIN Finance', category_change: 'Ubah kategori', export: 'Export',
 };
 const ROLES = { division: 'Divisi', finance: 'Finance', system: 'Sistem' };
 
@@ -63,7 +63,7 @@ function describe(r) {
   if (r.entity_type === 'category' && p) return `${p.kind === 'program' ? 'Kategori program' : 'Kategori baris'}: ${p.name} (${p.is_active ? 'aktif' : 'nonaktif'})`;
   if (r.entity_type === 'export' && r.new_data) return `Status: ${r.new_data.status}, ${r.new_data.row_count} baris`;
   if (r.entity_type === 'division') return 'PIN divisi diatur ulang';
-  if (r.entity_type === 'settings') return 'Master PIN diganti';
+  if (r.entity_type === 'settings') return 'PIN Finance diganti';
   return r.entity_id || '';
 }
 

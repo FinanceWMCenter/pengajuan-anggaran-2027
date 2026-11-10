@@ -94,12 +94,97 @@
 .site-footer .sep { margin: 0 0.125rem; }
 .site-footer, .cat-help, .pin-help { overflow-wrap: anywhere; }
 
+/* ---------- Halaman masuk (D-38) + pita nama divisi berjalan (D-39) ----------
+   HP/tablet (< 900px): bertumpuk di tengah, pita selebar kartu (24rem).
+   Layar lebar (>= 900px): 2 kolom - kiri logo/judul/pita, kanan kartu PIN; semua muat tanpa menggulir. */
+.public-main.login-main { max-width: 24rem; padding-top: 1.75rem; }
+.login-hero { text-align: center; }
+.login-brand { margin-bottom: 1.125rem; }
+.login-brand img { width: 9rem; }
+.login-brand h1 { margin-top: 0.75rem; }
+.login-card { width: 100%; max-width: 24rem; margin: 0 auto; }
+.login-note {
+    display: flex; gap: 0.375rem; align-items: flex-start; margin: 0.75rem 0 0; padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-lg); background: var(--accent); color: var(--foreground);
+    font-size: 0.8125rem; text-align: left;
+}
+.login-note .ic-sm { margin-top: 0.1875rem; color: var(--secondary); }
+.login-card .wm-field { margin-top: 1rem; }
+.login-card .wm-label { margin-bottom: 0.375rem; }
+
+.marquee {
+    position: relative; overflow: hidden; margin: 0 auto 1.25rem; padding: 0.625rem 0;
+    border-block: 1px solid var(--border);
+    -webkit-mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+    mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+    cursor: default; user-select: none;
+}
+.marquee-track {
+    display: flex; width: max-content;
+    animation: marquee-scroll var(--marquee-duration, 40s) linear infinite;
+}
+.marquee-list { display: flex; flex: none; align-items: center; margin: 0; padding: 0; list-style: none; }
+.marquee-list li {
+    display: flex; align-items: center; white-space: nowrap;
+    font-size: 0.875rem; font-weight: 600; letter-spacing: 0.01em; color: var(--primary);
+}
+.marquee-list li::after {
+    content: ''; display: inline-block; width: 0.375rem; height: 0.375rem; margin: 0 1.125rem;
+    border-radius: 9999px; background: var(--brand-orange);
+}
+.marquee:hover .marquee-track, .marquee.is-paused .marquee-track { animation-play-state: paused; }
+@keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* Perangkat meminta "kurangi gerakan": pita diam, nama divisi ditata rapi berbaris di tengah */
+@media (prefers-reduced-motion: reduce) {
+    .marquee { -webkit-mask-image: none; mask-image: none; padding: 0.625rem 0.25rem; }
+    .marquee-track { animation: none; width: auto; justify-content: center; }
+    .marquee-list { flex: 1 1 auto; min-width: 0; flex-wrap: wrap; justify-content: center; gap: 0.375rem 1.25rem; }
+    .marquee-list + .marquee-list { display: none; }
+    .marquee-list li::after { display: none; }
+}
+
+/* Layar lebar: dua kolom */
+@media (min-width: 900px) {
+    .public-main.login-main {
+        max-width: 60rem; display: grid; grid-template-columns: minmax(0, 1fr) 24rem;
+        align-items: center; gap: 3.5rem; padding-top: 2.5rem;
+    }
+    .login-hero { min-width: 0; }
+    .login-brand img { width: 11rem; }
+    .login-brand h1 { font-size: 1.75rem; }
+    .marquee { margin: 1.5rem 0 0; }
+    .login-card { margin: 0; }
+}
+
+/* HP: lebih rapat supaya keypad terlihat utuh tanpa menggulir */
+@media (max-width: 639px) {
+    .public-main.login-main { padding-top: 1.25rem; }
+    .login-brand { margin-bottom: 0.75rem; }
+    .login-brand img { width: 6.75rem; }
+    .login-brand h1 { font-size: 1.25rem; margin-top: 0.5rem; }
+    .login-brand p { display: none; }
+    .marquee { margin-bottom: 0.875rem; padding: 0.5rem 0; }
+    .marquee-list li { font-size: 0.8125rem; }
+    .login-card { padding: 1.125rem 1rem; }
+    .login-card .wm-field { margin-top: 0.75rem; }
+    .login-name-hint { display: none; }
+    .pin-key { height: 3.25rem; }
+    .pin-keypad { gap: 0.5rem; }
+}
+/* Layar pendek (laptop 125-150% zoom, HP kecil): rapatkan keypad */
+@media (max-height: 760px) {
+    .pin-key { height: 3rem; }
+    .pin-keypad { gap: 0.5rem; }
+    .public-main.login-main { padding-top: 1rem; }
+}
+
 /* ---------- PIN pad (seperti PIN HP) ---------- */
 .pin-card { text-align: center; }
 .pin-card .wm-field { text-align: left; }
 .pin-title { margin: 0; font-size: 1.125rem; font-weight: 600; }
 .pin-sub { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--muted-foreground); }
-.pin-dots { display: flex; justify-content: center; gap: 0.75rem; margin: 1.25rem 0 0.5rem; min-height: 2rem; }
+.pin-dots { display: flex; justify-content: center; align-items: center; gap: 0.75rem; margin: 1rem 0 0.25rem; min-height: 2rem; }
 .pin-dot {
     width: 1rem; height: 1rem; border-radius: 9999px; border: 2px solid var(--border); background: transparent;
     display: inline-flex; align-items: center; justify-content: center; transition: background-color 0.1s, border-color 0.1s;
@@ -111,7 +196,7 @@
 .pin-dots.is-error .pin-dot { border-color: var(--destructive); }
 @keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
 @media (prefers-reduced-motion: reduce) { .pin-dots.is-error { animation: none; } }
-.pin-message { min-height: 1.5rem; margin: 0.25rem 0 0.5rem; font-size: 0.875rem; }
+.pin-message { min-height: 1.25rem; margin: 0 0 0.625rem; font-size: 0.8125rem; line-height: 1.25rem; }
 .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; max-width: 17rem; margin: 0 auto; }
 .pin-key {
     height: 3.5rem; border: 1px solid var(--border); border-radius: 9999px; background: var(--background);
@@ -124,7 +209,7 @@
 .pin-key:disabled { opacity: 0.5; cursor: not-allowed; }
 .pin-key.is-fn { font-size: 0.8125rem; color: var(--muted-foreground); border-color: transparent; background: transparent; }
 .pin-tools { display: flex; justify-content: center; gap: 1rem; margin-top: 0.75rem; font-size: 0.875rem; }
-.pin-help { margin-top: 1rem; font-size: 0.8125rem; color: var(--muted-foreground); }
+.pin-help { margin-top: 0.875rem; font-size: 0.75rem; color: var(--muted-foreground); }
 
 /* ---------- Kerangka aplikasi (tambahan untuk wm-sidebar dll.) ---------- */
 .sidebar-brand { display: block; margin: 0 0 1rem 15px; text-decoration: none; }

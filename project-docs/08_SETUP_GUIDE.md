@@ -34,7 +34,7 @@ Panduan ini untuk Anda (bukan programmer). Claude di VS Code akan menulis kodeny
 1. Buka project `anggaran-2027-dev` -> menu kiri **SQL Editor** -> **New query**.
 2. Di VS Code buka file `db/01_schema.sql`, tekan `Ctrl+A` lalu `Ctrl+C`. Di SQL Editor tempel (`Ctrl+V`) lalu klik **Run**. Harus muncul "Success".
 3. Ulangi langkah 2 (query baru setiap file) berurutan untuk: `02_seed_master.sql` -> `03_functions.sql` -> `04_security.sql` -> `05_overview.sql`.
-4. **PIN (DEV dan PROD):** jalankan `06_bootstrap.sql`. Database membuat PIN **acak**: master PIN Finance 8 digit + PIN tiap divisi 6 digit (berbeda-beda), ditampilkan **satu kali** di tabel hasil di bawah editor. Salin semuanya ke password manager sekarang juga. (Bila dijalankan lagi, PIN yang sudah ada tidak berubah.) Master PIN bisa diganti nanti di halaman Finance -> Divisi & PIN.
+4. **PIN (DEV dan PROD):** jalankan `06_bootstrap.sql`. Database membuat PIN **acak 6 digit** untuk Finance dan tiap divisi (semuanya berbeda, karena PIN menentukan siapa yang masuk - D-38), ditampilkan **satu kali** di tabel hasil di bawah editor. Salin semuanya ke password manager sekarang juga. (Bila dijalankan lagi, PIN yang sudah ada tidak berubah.) Master PIN bisa diganti nanti di halaman Finance -> Divisi & PIN.
 4b. **Hanya DEV:** jalankan `99_test_seed.sql` untuk data demo realistis (158 program, semua divisi terisi Januari-Desember, sebagian draft). File ini tidak mengubah PIN.
 5. Cek menu **Table Editor**: ada 10 tabel, masing-masing berlabel "RLS enabled".
 6. **JANGAN** menjalankan `99_test_seed.sql` di PROD. Bila data uji terlanjur masuk sebelum go-live, jalankan `98_clear_test_data.sql` lalu `06_bootstrap.sql`.
@@ -45,6 +45,10 @@ Terminal VS Code (PowerShell), dari folder repo:
 powershell -ExecutionPolicy Bypass -File tests\run_db_tests.ps1
 ```
 Ketik password user `postgres` bila diminta (bisa beberapa kali). Hasil akhir harus "SEMUA TES SQL LULUS". Skrip ini membuat/menimpa database bernama `anggaran_test` saja, tidak menyentuh database lain.
+
+## D1b. Bila memperbarui database yang SUDAH berjalan (mis. perubahan login PIN langsung D-38)
+Jalankan ulang file yang berubah, berurutan, di SQL Editor: `03_functions.sql` -> `04_security.sql`. Keduanya aman diulang dan tidak menyentuh data program.
+Khusus perubahan D-38 (PIN Finance 8 -> 6 digit): jalankan `07_reset_semua_pin.sql` setelah mengganti kata 'TIDAK' menjadi 'YA'; salin 13 PIN baru yang tampil (sekali saja) ke password manager, lalu bagikan ulang ke PIC.
 
 ## D2. Uji keamanan di Supabase (Fase 3 - WAJIB sebelum data asli masuk)
 1. Siapkan Project URL dan anon/publishable key DEV (Project Settings -> API / Data API).

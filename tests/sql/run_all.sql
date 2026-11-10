@@ -61,8 +61,9 @@ drop table if exists _pin_backup;
 drop table if exists _master_backup;
 create temporary table _pin_backup as select id, pin_hash, pin_updated_at from divisions;
 create temporary table _master_backup as select value from app_settings where key = 'finance_pin_hash';
-update divisions set pin_hash = extensions.crypt('111111', extensions.gen_salt('bf', 4));
-insert into app_settings (key, value) values ('finance_pin_hash', extensions.crypt('12345678', extensions.gen_salt('bf', 4)))
+-- PIN uji UNIK per divisi (login PIN langsung, D-38): HR-PD 100001, HR-EB 100002, HR-TA 100003, HR-OPS 100005, ...; Finance 999999
+update divisions set pin_hash = extensions.crypt(lpad((100000 + sort_order)::text, 6, '0'), extensions.gen_salt('bf', 4));
+insert into app_settings (key, value) values ('finance_pin_hash', extensions.crypt('999999', extensions.gen_salt('bf', 4)))
 on conflict (key) do update set value = excluded.value;
 delete from sessions;
 
@@ -93,6 +94,8 @@ select test.expect_denied($q$select public._program_json(gen_random_uuid())$q$, 
 select test.expect_denied($q$select public._require_session('x')$q$, 'S-04b _require_session');
 select test.expect_denied($q$select public._overview(null::smallint, 10)$q$, 'S-04b _overview');
 select test.expect_denied($q$select public._random_digits(6)$q$, 'S-04b _random_digits');
+select test.expect_denied($q$select * from public._pin_owners('123456')$q$, 'S-04b _pin_owners (tidak bisa dipakai menebak PIN)');
+select test.expect_denied($q$select public._new_unique_pins(1, false)$q$, 'S-04b _new_unique_pins');
 
 -- S-05: tanpa token / token acak ditolak
 select test.expect_error($q$select rpc_list_programs('', 'hr-pd')$q$, 'AUTH_REQUIRED', 'S-05 token kosong');
@@ -100,23 +103,29 @@ select test.expect_error($q$select rpc_list_programs(null, 'hr-pd')$q$, 'AUTH_RE
 select test.expect_error($q$select rpc_list_programs(repeat('ab', 32), 'hr-pd')$q$, 'AUTH_EXPIRED', 'S-05 token acak');
 select test.expect_error($q$select rpc_f_overview('tebakan')$q$, 'AUTH_EXPIRED', 'S-05 finance token acak');
 
--- Login divisi dan finance
-select test.ok((rpc_login('hr-pd', '000000', 'Penyusup') ->> 'error') = 'PIN_WRONG', 'S-login PIN salah');
-select test.ok((rpc_login('tidak-ada', '111111', null) ->> 'error') = 'NOT_FOUND', 'S-login divisi tidak ada');
-select set_config('test.tok_pd', rpc_login('hr-pd', '111111', 'Tester PD') ->> 'token', false);
-select set_config('test.tok_eb', rpc_login('hr-eb', '111111', 'Tester EB') ->> 'token', false);
-select set_config('test.tok_ta', rpc_login('hr-ta', '111111', 'Tester TA') ->> 'token', false);
-select set_config('test.tok_fin', rpc_login_finance('12345678', 'Tester Finance') ->> 'token', false);
+-- Login PIN langsung (D-38): PIN menentukan akun
+select test.ok((rpc_login_pin('000000', 'Penyusup') ->> 'error') = 'PIN_WRONG', 'S-login PIN salah');
+select test.ok((rpc_login_pin('12345', null) ->> 'error') = 'PIN_WRONG', 'S-login PIN 5 digit ditolak');
+select test.ok((rpc_login_pin('1000011', null) ->> 'error') = 'PIN_WRONG', 'S-login PIN 7 digit ditolak');
+select test.ok((rpc_login_pin('100002', null) -> 'division' ->> 'code') = 'hr-eb', 'D-38 PIN HR-EB langsung masuk ke HR-EB');
+select test.ok((rpc_login_pin('100012', null) -> 'division' ->> 'code') = 'physiotherapist', 'D-38 PIN Physiotherapist langsung masuk ke Physiotherapist');
+select test.ok((rpc_login_pin('999999', null) ->> 'role') = 'finance', 'D-38 PIN Finance (6 digit) masuk sebagai Finance');
+select set_config('test.tok_pd', rpc_login_pin('100001', 'Tester PD') ->> 'token', false);
+select set_config('test.tok_eb', rpc_login_pin('100002', 'Tester EB') ->> 'token', false);
+select set_config('test.tok_ta', rpc_login_pin('100003', 'Tester TA') ->> 'token', false);
+select set_config('test.tok_fin', rpc_login_pin('999999', 'Tester Finance') ->> 'token', false);
 select test.ok(length(current_setting('test.tok_pd')) = 64, 'S-login token 64 hex');
-select test.ok((rpc_login_finance('1234567', null) ->> 'error') = 'PIN_WRONG', 'S-login master PIN 7 digit ditolak');
+-- Login lama per divisi tetap berfungsi (cadangan bila web dikembalikan ke versi sebelumnya)
+select test.ok((rpc_login('hr-pd', '100001', null) ->> 'ok')::boolean, 'Kompatibilitas rpc_login lama');
+select test.ok((rpc_login('hr-pd', '100002', null) ->> 'error') = 'PIN_WRONG', 'Kompatibilitas rpc_login: PIN divisi lain ditolak');
 
 -- D-28: tidak ada lockout. 5x salah lalu PIN benar tetap bisa masuk.
 do $$
 begin
   for i in 1..5 loop
-    perform rpc_login('hr-ops', '999999', null);
+    perform rpc_login_pin('999998', null);
   end loop;
-  perform test.ok((rpc_login('hr-ops', '111111', null) ->> 'ok')::boolean, 'S-08 (D-28) tanpa lockout: PIN benar tetap diterima');
+  perform test.ok((rpc_login_pin('100005', null) -> 'division' ->> 'code') = 'hr-ops', 'S-08 (D-28) tanpa lockout: PIN benar tetap diterima');
 end $$;
 
 -- S-06: isolasi antar divisi
@@ -150,7 +159,7 @@ begin
          'nama_program', $s$'; drop table programs;--$s$, 'program_category_id', 1, 'periode_bulan', 2,
          'pic_nama', $s$Robert'); --$s$, 'items', '[]'::jsonb, 'submit', false));
   perform test.ok(v ->> 'nama_program' = $s$'; drop table programs;--$s$, 'S-09 nama berisi SQL tersimpan sebagai teks');
-  perform test.ok((rpc_login('hr-pd', $s$' or '1'='1$s$, null) ->> 'error') = 'PIN_WRONG', 'S-09 PIN berisi SQL ditolak');
+  perform test.ok((rpc_login_pin($s$' or '1'='1$s$, null) ->> 'error') = 'PIN_WRONG', 'S-09 PIN berisi SQL ditolak');
   perform rpc_delete_program(current_setting('test.tok_pd'), v ->> 'id', null);
 end $$;
 
@@ -302,18 +311,24 @@ end $$;
 -- F-22 + S-13: atur PIN divisi mencabut sesi lama
 select test.ok((rpc_f_set_division_pin(current_setting('test.tok_fin'), (select (d ->> 'id')::int from jsonb_array_elements(rpc_f_list_divisions(current_setting('test.tok_fin'))) d where d ->> 'code' = 'hr-pd'), '654321') ->> 'ok')::boolean, 'F-22 atur PIN divisi');
 select test.expect_error(format('select rpc_list_programs(%L, null)', current_setting('test.tok_pd')), 'AUTH_EXPIRED', 'S-13 token lama ditolak setelah PIN diganti');
-select test.ok((rpc_login('hr-pd', '111111', null) ->> 'error') = 'PIN_WRONG', 'F-22 PIN lama tidak berlaku');
-select test.ok((rpc_login('hr-pd', '654321', null) ->> 'ok')::boolean, 'F-22 PIN baru berlaku');
+select test.ok((rpc_login_pin('100001', null) ->> 'error') = 'PIN_WRONG', 'F-22 PIN lama tidak berlaku');
+select test.ok((rpc_login_pin('654321', null) -> 'division' ->> 'code') = 'hr-pd', 'F-22 PIN baru berlaku (masuk ke HR-PD)');
 select test.expect_error(format('select rpc_f_set_division_pin(%L, 1, %L)', current_setting('test.tok_fin'), '12345'), 'VALIDATION:pin', 'F-22 PIN 5 digit ditolak');
+-- D-38: PIN wajib unik
+select test.expect_error(format('select rpc_f_set_division_pin(%L, 1, %L)', current_setting('test.tok_fin'), '100002'), 'VALIDATION:pin', 'D-38 PIN milik divisi lain ditolak');
+select test.expect_error(format('select rpc_f_set_division_pin(%L, 1, %L)', current_setting('test.tok_fin'), '999999'), 'VALIDATION:pin', 'D-38 PIN milik Finance ditolak untuk divisi');
+select test.ok((rpc_f_set_division_pin(current_setting('test.tok_fin'), 1, '654321') ->> 'ok')::boolean, 'D-38 PIN sama dengan PIN divisi itu sendiri boleh');
 
--- Ganti master PIN
-select test.expect_error(format('select rpc_f_set_master_pin(%L, %L, %L)', current_setting('test.tok_fin'), '00000000', '87654321'), 'VALIDATION:old_pin', 'F-master PIN lama salah ditolak');
-select test.ok((rpc_f_set_master_pin(current_setting('test.tok_fin'), '12345678', '87654321') ->> 'ok')::boolean, 'F-master ganti master PIN');
-select test.ok((rpc_login_finance('87654321', null) ->> 'ok')::boolean, 'F-master PIN baru berlaku');
-select rpc_f_set_master_pin(current_setting('test.tok_fin'), '87654321', '12345678');
+-- Ganti PIN Finance (6 digit, unik)
+select test.expect_error(format('select rpc_f_set_master_pin(%L, %L, %L)', current_setting('test.tok_fin'), '000000', '888888'), 'VALIDATION:old_pin', 'F-master PIN lama salah ditolak');
+select test.expect_error(format('select rpc_f_set_master_pin(%L, %L, %L)', current_setting('test.tok_fin'), '999999', '88888888'), 'VALIDATION:new_pin', 'F-master PIN baru 8 digit ditolak (harus 6)');
+select test.expect_error(format('select rpc_f_set_master_pin(%L, %L, %L)', current_setting('test.tok_fin'), '999999', '100003'), 'VALIDATION:new_pin', 'D-38 PIN Finance tidak boleh sama dengan PIN divisi');
+select test.ok((rpc_f_set_master_pin(current_setting('test.tok_fin'), '999999', '888888') ->> 'ok')::boolean, 'F-master ganti PIN Finance');
+select test.ok((rpc_login_pin('888888', null) ->> 'role') = 'finance', 'F-master PIN Finance baru berlaku');
+select rpc_f_set_master_pin(current_setting('test.tok_fin'), '888888', '999999');
 
 -- Logout menghapus sesi
-select set_config('test.tok_tmp', rpc_login('hr-eb', '111111', null) ->> 'token', false);
+select set_config('test.tok_tmp', rpc_login_pin('100002', null) ->> 'token', false);
 select rpc_logout(current_setting('test.tok_tmp'));
 select test.expect_error(format('select rpc_list_programs(%L, null)', current_setting('test.tok_tmp')), 'AUTH_EXPIRED', 'S-logout token tidak berlaku lagi');
 
@@ -412,6 +427,17 @@ update sessions set expires_at = now() - interval '1 minute'
 set role anon;
 select test.expect_error(format('select rpc_list_programs(%L, null)', current_setting('test.tok_eb')), 'AUTH_EXPIRED', 'S-12 token kedaluwarsa ditolak');
 reset role;
+
+-- D-38: PIN kembar (mis. terjadi sebelum aturan PIN unik) -> login ditolak, tidak pernah salah masuk divisi
+update divisions set pin_hash = extensions.crypt('100002', extensions.gen_salt('bf', 4)) where code = 'hr-ops';
+set role anon;
+select test.ok((rpc_login_pin('100002', null) ->> 'error') = 'PIN_DUPLICATE', 'D-38 PIN kembar ditolak (tidak salah masuk divisi)');
+reset role;
+update divisions set pin_hash = extensions.crypt('100005', extensions.gen_salt('bf', 4)) where code = 'hr-ops';
+
+-- D-38: pembuat PIN acak menghasilkan PIN unik dan tidak bentrok dengan PIN yang sudah ada
+select test.ok((select count(distinct p) = 13 and bool_and(p ~ '^[0-9]{6}$') and bool_and(not exists (select 1 from public._pin_owners(p)))
+                from unnest(public._new_unique_pins(13, true)) p), 'D-38 13 PIN acak unik, 6 digit, tidak bentrok');
 
 -- D-05: tanggal WIB (bukan UTC) pada batas tengah malam
 select test.ok((timestamptz '2027-01-14 16:30:00+00' at time zone 'Asia/Jakarta')::date = date '2027-01-14', 'D-05 23:30 WIB tetap tanggal yang sama');

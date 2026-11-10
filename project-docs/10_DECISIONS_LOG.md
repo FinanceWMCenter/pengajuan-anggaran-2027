@@ -42,6 +42,8 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | D-35 | (2026-11-09) `project-docs/` ikut di-commit ke repo publik (menjawab Q-07 / temuan no. 5). Larangan tetap: tidak ada PIN/ password/ key asli di file mana pun |
 | D-36 | (2026-11-09) UI/UX memakai **design kit WM Center** (`C:\Aset WM Center\design-kit`: logo, warna, tabel, komponen, mode gelap) sejak awal. Fase 12 dipercepat dan digabung ke Fase 4-9. Bila ada beda dengan design kit: keputusan di file ini menang (mis. design kit "tidak ada tombol hapus" vs D-15 hard delete dengan log -> D-15 berlaku; "aksi ubah wajib beralasan" -> hanya hapus oleh Finance yang wajib alasan, sesuai PRD) |
 | D-37 | (2026-11-09) Finance meminta seluruh sistem dibangun dulu, lalu dicek sebelum push ke GitHub (fase dikerjakan berurutan tanpa berhenti per fase). Fase yang butuh akun Supabase/GitHub tetap menunggu Finance |
+| D-38 | (2026-11-10) **Login PIN langsung** (seperti SSO): tidak ada lagi pilih divisi. Satu halaman masuk; PIN 6 digit menentukan akun (divisi atau Finance). **PIN Finance menjadi 6 digit** (sama cara masuknya). Semua PIN wajib unik; PIN kembar ditolak saat diatur, dan bila ada PIN kembar lama, login ditolak (tidak pernah salah masuk divisi). Konsekuensi diterima Finance: tebakan PIN acak sekitar 12x lebih mudah (D-27). Menggantikan A-01 (pilih divisi di Home) dan A-14 (Finance 8 digit) |
+| D-39 | (2026-11-10) Halaman masuk dihias **pita nama divisi berjalan** dari kanan ke kiri (pelan, berhenti saat disentuh/disorot, diam bila perangkat meminta "kurangi gerakan", diabaikan pembaca layar). Layar lebar 2 kolom, HP/tablet bertumpuk; komposisi & responsif dicek di 360px, 768px, 1366x650, 1920px, mode gelap |
 
 ## A - Asumsi Claude/ penyusun (belum dikonfirmasi; ubah bila salah)
 | ID | Asumsi | Dampak jika salah |
@@ -59,7 +61,7 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | A-11 | Daftar kategori tambahan di `09_MASTER_DATA.md` disetujui (usulan penyusun) | Ubah seed |
 | A-12 | Export Excel/ CSV oleh Finance termasuk dalam rilis awal | - |
 | A-13 | Satu program maksimal 200 baris; batas karakter seperti di PRD | Longgarkan |
-| A-14 | **Dikonfirmasi Finance 2026-11-09.** PIN divisi = 6 digit angka; master PIN Finance = 8 digit angka (agar cocok dengan tampilan PIN HP, D-29). Menggantikan "master PIN min. 10 karakter" di `05_SECURITY_MODEL.md` 3.1 | Ubah panjang PIN |
+| A-14 | ~~**Dikonfirmasi Finance 2026-11-09.** PIN divisi = 6 digit angka; master PIN Finance = 8 digit angka~~ -> diganti D-38 (PIN Finance 6 digit) (agar cocok dengan tampilan PIN HP, D-29). Menggantikan "master PIN min. 10 karakter" di `05_SECURITY_MODEL.md` 3.1 | Ubah panjang PIN |
 
 ## T - Aturan teknis yang ditetapkan Claude (D-33; Finance boleh mengubah)
 | ID | Aturan |
@@ -77,6 +79,8 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | T-11 | Finance melihat area divisi memakai sesi Finance (login master PIN di `#/finance`), bukan dengan mengetik master PIN di PIN gate divisi. Penyempurnaan A-09 |
 | T-12 | PIN gate tidak mengunci (D-28). Sebagai ganti: jeda 1 detik di server setiap PIN salah, semua percobaan tercatat di `login_attempts` |
 | T-13 | Tabel kebutuhan menyesuaikan lebar area (container query): tabel di layar lebar, kartu per baris di HP/tablet |
+| T-14 | Hash PIN memakai bcrypt tingkat 6 (sebelumnya 10) agar login PIN langsung (1 PIN dicek ke 13 akun) selesai < 0,3 detik di Supabase (batas 3 detik). Untuk PIN 6 digit, tingkat hash praktis tidak mengubah keamanan; hash tidak pernah keluar dari database |
+| T-15 | `db/04_security.sql` aman dijalankan ulang kapan saja: izin fungsi Overview (dibuat di 05) dipasang lagi bila sudah ada (BUG-019) |
 
 ## Q - Pertanyaan terbuka
 | ID | Pertanyaan | Default sementara |
@@ -105,3 +109,4 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | 2026-11-09 | Fase 0: tambah D-27..D-33, A-14, bagian T; A-05 lockout dibatalkan |
 | 2026-11-09 | Fase 0: tambah D-34 (impor file Excel), D-35 (dokumen di repo publik); A-14 dikonfirmasi |
 | 2026-11-09 | Pembangunan Fase 1-11 (bagian lokal): tambah D-36, D-37, T-07..T-13 |
+| 2026-11-10 | Login PIN langsung + pita divisi: D-38, D-39, T-14, T-15; A-14 diganti |

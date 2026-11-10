@@ -181,3 +181,13 @@ Cara mengulang: `tests/run_db_tests.ps1` (lokal, langkah 4 otomatis), atau tempe
 ## 12. Fase 3: uji keamanan di Supabase DEV (2026-11-09)
 
 Project `anggaran-2027-dev` (Singapore, Free). SQL 01-05, 06_bootstrap, 99_test_seed dijalankan via SQL Editor; `reconcile.sql` = SEMUA COCOK (1.406 angka). `tests/rest_security_check.ps1` dengan publishable key: **SEMUA CEK KEAMANAN LULUS** (S-01 baca 10 tabel ditolak, S-02 tulis ditolak, S-03 pin_hash tidak terbaca, fungsi internal tertutup, S-05 tanpa token/token acak ditolak). Web lokal memuat 12 divisi dari Supabase tanpa error (CSP + publishable key OK).
+
+## 13. Perubahan login PIN langsung (D-38/D-39), 2026-11-10
+
+| Lapisan | Hasil |
+|---|---|
+| SQL (`run_all.sql`) | 142 cek lulus, termasuk baru: PIN menentukan divisi, PIN Finance 6 digit, PIN 5/7 digit ditolak, PIN milik divisi lain/Finance ditolak saat diatur, PIN kembar -> login ditolak (PIN_DUPLICATE), 13 PIN acak unik, fungsi pembantu PIN tertutup dari browser, login lama tetap berfungsi |
+| Bootstrap & reset | `06_bootstrap.sql` 13 PIN 6 digit unik, aman diulang; `07_reset_semua_pin.sql` tidak berbuat apa-apa sebelum konfirmasi 'YA', setelahnya 13 PIN baru unik |
+| Kecepatan | Login 1 PIN dicek ke 13 akun: +/- 0,05-0,07 detik (lokal) |
+| Browser (e2e) | 94 cek lulus: pita 12 divisi urut & bergerak kanan->kiri, PIN langsung masuk divisi/Finance, tautan divisi + PIN -> kembali ke halaman tujuan, logout -> halaman masuk, "kurangi gerakan", tanpa scroll ke samping di 360/768/1366x650/1920 |
+| Audit angka tampilan | 3.682 angka, 0 selisih |

@@ -34,6 +34,7 @@ grant usage on schema public to anon;
 grant execute on function public.rpc_ping()                                   to anon;
 grant execute on function public.rpc_list_divisions()                         to anon;
 grant execute on function public.rpc_get_master()                             to anon;
+grant execute on function public.rpc_login_pin(text, text)                    to anon;  -- login PIN langsung (D-38)
 grant execute on function public.rpc_login(text, text, text)                  to anon;
 grant execute on function public.rpc_login_finance(text, text)                to anon;
 grant execute on function public.rpc_logout(text)                             to anon;
@@ -49,5 +50,16 @@ grant execute on function public.rpc_f_set_master_pin(text, text, text)       to
 grant execute on function public.rpc_f_upsert_category(text, text, int, text, boolean) to anon;
 grant execute on function public.rpc_f_audit_log(text, jsonb)                 to anon;
 grant execute on function public.rpc_f_export(text, jsonb)                    to anon;
--- Fungsi overview diberi izin di akhir 05_overview.sql.
+-- Fungsi overview dibuat di 05_overview.sql (dan diberi izin di sana). Bila file ini dijalankan ULANG
+-- setelah 05, izinnya ikut tercabut oleh langkah 2 -> pasang lagi di sini supaya Overview tetap jalan.
+do $$
+begin
+  if to_regprocedure('public.rpc_overview_division(text, text)') is not null then
+    grant execute on function public.rpc_overview_division(text, text) to anon;
+  end if;
+  if to_regprocedure('public.rpc_f_overview(text)') is not null then
+    grant execute on function public.rpc_f_overview(text) to anon;
+  end if;
+end;
+$$;
 -- Fungsi berawalan "_" (pembantu internal) sengaja TIDAK diberi izin.

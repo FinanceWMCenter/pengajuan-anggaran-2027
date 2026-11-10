@@ -16,6 +16,7 @@ export const MESSAGES = {
   CONFIG: 'Aplikasi belum terhubung ke database (file config.js belum diisi). Hubungi Finance.',
   PIN_WRONG: 'PIN salah. Coba lagi.',
   PIN_NOT_SET: 'PIN untuk divisi ini belum diatur. Hubungi Finance.',
+  PIN_DUPLICATE: 'PIN ini terdaftar di lebih dari satu akun. Hubungi Finance untuk mengganti PIN.',
   VALIDATION: 'Ada isian yang belum sesuai.',
 };
 

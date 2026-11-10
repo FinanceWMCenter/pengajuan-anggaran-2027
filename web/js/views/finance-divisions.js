@@ -1,4 +1,4 @@
-// Divisi & PIN (F-02): atur/reset PIN divisi (6 digit), ganti master PIN (8 digit).
+// Divisi & PIN (F-02): atur/reset PIN divisi (6 digit), ganti PIN Finance (6 digit). Semua PIN unik (D-38).
 // PIN baru ditampilkan SATU KALI. Database hanya menyimpan hash; PIN lama tidak bisa dilihat.
 
 import { h, icon, formatRupiah, formatDateTime, randomDigits } from '../utils.js';
@@ -9,7 +9,7 @@ import { openDialog, alertDialog } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 
 export async function financeDivisionsView(main) {
-  main.append(pageHead({ title: 'Divisi & PIN', subtitle: 'Atur PIN tiap divisi dan master PIN Finance. Tidak ada penguncian PIN (D-28).' }));
+  main.append(pageHead({ title: 'Divisi & PIN', subtitle: 'Atur PIN tiap divisi dan PIN Finance. Setiap PIN unik karena PIN menentukan siapa yang masuk.' }));
   const body = h('div', { class: 'stack' }, loadingBlock());
   main.append(body);
 
@@ -55,9 +55,16 @@ async function setDivisionPin(d) {
     h('div', { class: 'wm-field' },
       h('label', { class: 'wm-label', for: 'new-pin' }, 'PIN baru (6 digit angka)', h('span', { class: 'wm-required' }, '*wajib')),
       h('div', { class: 'row' }, input, h('button', { type: 'button', class: 'wm-btn wm-btn-outline wm-btn-sm', onclick: () => { input.value = randomDigits(6); } }, icon('refresh'), 'Acak')),
-      h('p', { class: 'wm-hint', id: 'new-pin-hint' }, 'Disarankan memakai PIN acak. Hindari 123456 atau tanggal lahir.'),
+      h('p', { class: 'wm-hint', id: 'new-pin-hint' }, 'Disarankan memakai PIN acak. PIN harus berbeda dari PIN divisi lain dan PIN Finance, karena PIN menentukan divisi saat masuk.'),
       err));
 
+  const fail = (msg) => {
+    err.textContent = msg;
+    input.classList.add('is-invalid');
+    input.focus();
+    return false;
+  };
+  let saved = null;
   const choice = await openDialog({
     title: `${d.has_pin ? 'Reset' : 'Atur'} PIN ${d.name}`,
     description: d.has_pin ? 'PIN lama langsung tidak berlaku dan semua sesi divisi ini dikeluarkan.' : 'Buat PIN untuk divisi ini.',
@@ -66,27 +73,21 @@ async function setDivisionPin(d) {
       { label: 'Batal', value: null },
       {
         label: 'Simpan PIN', value: 'ok', variant: 'primary',
-        validate: () => {
-          if (!/^\d{6}$/.test(input.value)) {
-            err.textContent = 'PIN harus 6 digit angka.';
-            input.classList.add('is-invalid');
-            input.focus();
-            return false;
+        validate: async () => {
+          if (!/^\d{6}$/.test(input.value)) return fail('PIN harus 6 digit angka.');
+          try {
+            await rpc('rpc_f_set_division_pin', { p_division_id: d.id, p_new_pin: input.value });
+            saved = input.value;
+            return true;
+          } catch (e) {
+            return fail(e instanceof ApiError ? e.message : errorMessage(e)); // mis. PIN sudah dipakai: dialog tetap terbuka
           }
-          return true;
         },
       },
     ],
   });
-  if (choice !== 'ok') return;
-  const pin = input.value;
-  try {
-    await rpc('rpc_f_set_division_pin', { p_division_id: d.id, p_new_pin: pin });
-  } catch (e) {
-    toast(errorMessage(e), 'error');
-    return;
-  }
-  await showPinOnce(`PIN baru ${d.name}`, pin);
+  if (choice !== 'ok' || !saved) return;
+  await showPinOnce(`PIN baru ${d.name}`, saved);
   refresh();
 }
 
@@ -106,30 +107,31 @@ async function showPinOnce(title, pin) {
 }
 
 function masterPinCard() {
-  const mk = (id, label) => {
-    const input = h('input', { class: 'wm-input num', id, type: 'password', inputmode: 'numeric', maxlength: 8, autocomplete: 'off' });
-    input.addEventListener('input', () => { input.value = input.value.replace(/\D/g, '').slice(0, 8); });
+  // PIN lama boleh 6-8 digit (PIN Finance lama dulu 8 digit); PIN baru selalu 6 digit (D-38)
+  const mk = (id, label, max) => {
+    const input = h('input', { class: 'wm-input num', id, type: 'password', inputmode: 'numeric', maxlength: max, autocomplete: 'off' });
+    input.addEventListener('input', () => { input.value = input.value.replace(/\D/g, '').slice(0, max); });
     return { input, field: h('div', { class: 'wm-field' }, h('label', { class: 'wm-label', for: id }, label, h('span', { class: 'wm-required' }, '*wajib')), input) };
   };
-  const oldPin = mk('m-old', 'Master PIN lama');
-  const newPin = mk('m-new', 'Master PIN baru (8 digit)');
-  const confirmPin = mk('m-confirm', 'Ulangi master PIN baru');
+  const oldPin = mk('m-old', 'PIN Finance saat ini', 8);
+  const newPin = mk('m-new', 'PIN Finance baru (6 digit)', 6);
+  const confirmPin = mk('m-confirm', 'Ulangi PIN Finance baru', 6);
   const err = h('p', { class: 'wm-error', role: 'alert' });
-  const btn = h('button', { type: 'submit', class: 'wm-btn wm-btn-primary' }, icon('key'), 'Ganti master PIN');
+  const btn = h('button', { type: 'submit', class: 'wm-btn wm-btn-primary' }, icon('key'), 'Ganti PIN Finance');
   const form = h('form', { class: 'stack-sm', novalidate: true },
     h('div', { class: 'wm-form-grid cols-2' }, oldPin.field, h('div', null), newPin.field, confirmPin.field),
     err, h('div', { class: 'form-actions' }, btn));
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     err.textContent = '';
-    if (!/^\d{8}$/.test(oldPin.input.value)) { err.textContent = 'Master PIN lama harus 8 digit.'; oldPin.input.focus(); return; }
-    if (!/^\d{8}$/.test(newPin.input.value)) { err.textContent = 'Master PIN baru harus 8 digit angka.'; newPin.input.focus(); return; }
-    if (newPin.input.value !== confirmPin.input.value) { err.textContent = 'Ulangan master PIN baru tidak sama.'; confirmPin.input.focus(); return; }
+    if (!/^\d{6,8}$/.test(oldPin.input.value)) { err.textContent = 'Isi PIN Finance saat ini.'; oldPin.input.focus(); return; }
+    if (!/^\d{6}$/.test(newPin.input.value)) { err.textContent = 'PIN Finance baru harus 6 digit angka.'; newPin.input.focus(); return; }
+    if (newPin.input.value !== confirmPin.input.value) { err.textContent = 'Ulangan PIN Finance baru tidak sama.'; confirmPin.input.focus(); return; }
     setLoading(btn, true);
     try {
       await rpc('rpc_f_set_master_pin', { p_old_pin: oldPin.input.value, p_new_pin: newPin.input.value });
       [oldPin, newPin, confirmPin].forEach((x) => { x.input.value = ''; });
-      toast('Master PIN berhasil diganti. Sesi Finance lain sudah dikeluarkan.', 'success');
+      toast('PIN Finance berhasil diganti. Sesi Finance lain sudah dikeluarkan.', 'success');
     } catch (ex) {
       err.textContent = ex instanceof ApiError ? ex.message : errorMessage(ex);
     } finally {
@@ -138,7 +140,7 @@ function masterPinCard() {
   });
   return h('section', { class: 'wm-card' },
     h('div', { class: 'card-head' }, h('div', null,
-      h('h2', { class: 'wm-card-title' }, 'Master PIN Finance'),
-      h('p', { class: 'wm-card-subtitle' }, 'Ganti master PIN awal setelah go-live, dan ganti berkala. Jangan dibagikan.'))),
+      h('h2', { class: 'wm-card-title' }, 'PIN Finance'),
+      h('p', { class: 'wm-card-subtitle' }, 'Ganti PIN Finance awal setelah go-live, dan ganti berkala. Jangan dibagikan.'))),
     form);
 }

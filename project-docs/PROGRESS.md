@@ -39,3 +39,4 @@ Baca file ini + `10_DECISIONS_LOG.md` dulu setiap memulai sesi baru.
 | 2026-11-09 | Audit angka | `tests/sql/reconcile.sql` (1.406 angka DB) + audit tampilan (3.683 angka di layar, semua 158 program) = 0 selisih. Perbaikan BUG-014 (baris TOTAL kini hanya Diajukan), BUG-015, BUG-016. Data demo ditambah qty desimal untuk uji pembulatan |
 | 2026-11-09 | Push & deploy | Commit d0d6ee8 di-push; GitHub Pages sukses; web tayang; R-01 (dokumen tidak terbuka di web) lulus |
 | 2026-11-09 | 3 | Supabase DEV aktif; reconcile SEMUA COCOK; rest_security_check SEMUA LULUS; config.js diisi (URL + publishable key DEV); BUG-017 (seed tanpa tabel sementara), BUG-018 (skrip cek PS 5.1) |
+| 2026-11-10 | Fitur | Login PIN langsung + PIN Finance 6 digit + PIN unik (D-38), pita divisi berjalan (D-39); `db/07_reset_semua_pin.sql`; BUG-019, BUG-020. Lokal: SQL 142/142, e2e 94/94, audit tampilan 3.682/0 selisih. Menunggu: Finance menjalankan 03, 04, 07 di Supabase DEV, lalu push web |
