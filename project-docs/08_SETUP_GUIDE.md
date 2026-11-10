@@ -91,18 +91,19 @@ powershell -ExecutionPolicy Bypass -File tests\rest_security_check.ps1 -Url "htt
 ## I. Backup (wajib, mingguan selama masa pengumpulan)
 1. **Export dari web Finance** (xlsx) - cepat dan mudah dibaca.
 2. **Backup database penuh** (Terminal VS Code, dari folder repo):
-   \Windows PowerShell
-Copyright (C) Microsoft Corporation. All rights reserved.
-
-Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows   -  tempel dari Supabase -> **Connect** -> Connection String -> **Shared/Session pooler** (port 5432). Bagian  biarkan apa adanya.
-   -  tempel password database Supabase (klik kanan sekali; tidak terlihat, itu normal) -> Enter.
-   - Hasil: **BACKUP BERHASIL**, file di  (di luar repo). Simpan salinan juga di tempat lain (mis. Google Drive Finance). **Jangan commit file .dump.**
-   - Untuk PROD tambahkan .
+   ```
+   powershell -ExecutionPolicy Bypass -File tools\backup.ps1
+   ```
+   - `Connection string:` tempel dari Supabase -> **Connect** -> Connection String -> **Shared/Session pooler** (port 5432). Bagian `[YOUR-PASSWORD]` biarkan apa adanya.
+   - `Password:` tempel password database Supabase (klik kanan sekali; tidak terlihat, itu normal) -> Enter.
+   - Hasil: **BACKUP BERHASIL**, file di `Dokumen\Backup-Anggaran2027` (di luar repo). Simpan salinan juga di tempat lain (mis. Google Drive Finance). **Jangan commit file .dump.**
+   - Untuk PROD tambahkan `-Label PROD`.
    - Lupa password database Supabase? Connect -> **Reset database password** (aman: web & keepalive tidak memakai password ini).
-3. **Latihan restore** (minimal sekali sebelum go-live, lalu sesekali): Windows PowerShell
-Copyright (C) Microsoft Corporation. All rights reserved.
-
-Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows -> memulihkan backup terbaru ke Postgres lokal (database ) dan menjalankan audit angka; hasil harus **RESTORE BERHASIL** + SEMUA COCOK. Butuh password Postgres lokal (bila lupa, minta Claude menjalankannya/ memandu reset).
+3. **Latihan restore** (minimal sekali sebelum go-live, lalu sesekali):
+   ```
+   powershell -ExecutionPolicy Bypass -File tools\restore_test.ps1
+   ```
+   Memulihkan backup terbaru ke Postgres lokal (database `anggaran_restore`) lalu menjalankan audit angka; hasil harus **RESTORE BERHASIL** + SEMUA COCOK. Butuh password Postgres lokal (bila lupa, minta Claude menjalankannya atau memandu reset).
 
 ## J. Checklist go-live
 - [ ] Semua tes P0 lulus (file 07); `tests/rest_security_check.ps1` lulus di PROD; S-14 (tidak ada secret di repo) diulang.

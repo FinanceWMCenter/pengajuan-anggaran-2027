@@ -114,8 +114,8 @@ Prioritas: **P0** wajib lulus sebelum go-live, **P1** sangat disarankan, **P2** 
 |---|---|---|---|---|
 | R-01 | P0 | Deploy Pages dari folder `web/` saja; `project-docs/` tidak terbuka di URL publik | Sesuai | Belum |
 | R-02 | P0 | Keepalive dijalankan manual (`workflow_dispatch`) | Sukses, `rpc_ping` ok | Belum |
-| R-03 | P0 | Backup `pg_dump` dijalankan; file tersimpan di luar repo | Ada | Belum |
-| R-04 | P0 | **Simulasi restore** backup ke Postgres lokal/ project kosong | Data sama | Belum |
+| R-03 | P0 | Backup `pg_dump` dijalankan; file tersimpan di luar repo | Ada | Lulus |
+| R-04 | P0 | **Simulasi restore** backup ke Postgres lokal/ project kosong | Data sama | Lulus |
 | R-05 | P1 | Cek kapasitas penyimpanan database di dashboard | Jauh dari batas | Belum |
 | R-06 | P0 | Ganti `config.js` ke PROD; seluruh alur dasar diuji dengan data uji lalu dibersihkan | Sesuai | Belum |
 | R-07 | P0 | Pembersihan data uji sebelum go-live (program palsu, log uji, sesi) | Kosong, PIN asli aktif | Belum |
