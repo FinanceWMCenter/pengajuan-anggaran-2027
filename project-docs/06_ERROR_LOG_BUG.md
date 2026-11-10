@@ -60,7 +60,7 @@ Dipakai oleh Claude (saat mengembangkan) dan Finance (saat UAT/ operasional). Pe
 | R-01 | RLS/ hak anon salah | Critical | Jalankan S-01..S-04 | 2026-11-09 (lokal) | Lulus lokal; ulang di Supabase |
 | R-02 | Secret ter-commit | Critical | Cari di repo + riwayat git | 2026-11-09 | Bersih (belum ada commit kode); workflow deploy memblokir pola rahasia |
 | R-03 | PIN dibagikan | High | Tinjau log per divisi | - | Belum |
-| R-04 | Project tertidur/ backup | High | Keepalive hijau; backup minggu ini ada | - | Belum |
+| R-04 | Project tertidur/ backup | High | Keepalive hijau; backup minggu ini ada | 2026-11-10 | Keepalive hijau; backup belum dilatih |
 | R-05 | Penghapusan tidak sengaja | High | Tinjau log `delete` | - | Belum |
 | R-06 | Lockout dipakai iseng | Medium | Tidak berlaku (D-28: tanpa lockout) | 2026-11-09 | Tidak berlaku |
 | R-08 | Form sulit di HP | Medium | Umpan balik UAT | - | Belum |

@@ -195,3 +195,12 @@ Project `anggaran-2027-dev` (Singapore, Free). SQL 01-05, 06_bootstrap, 99_test_
 ## 14. Divisi ke-13 Project Expansion (D-40), 2026-11-10
 
 Simulasi pembaruan DEV (database versi sebelumnya -> 02, 06, 99 baru): 06 hanya membuat 1 PIN (Project Expansion), PIN 12 divisi lama & Finance tidak berubah; data demo 170 program, 13/13 divisi terisi 12 bulan; reconcile 1.531 angka SEMUA COCOK. Tes penuh: SQL lulus (8 grup/13 divisi), e2e 94/94 (pita 13 nama), audit tampilan 3.993 angka 0 selisih.
+
+## 15. Operasional (R), 2026-11-10
+
+| ID | Status | Catatan |
+|---|---|---|
+| R-01 | Lulus | Pages hanya dari `web/`; `project-docs/` 404 di URL publik |
+| R-02 | Lulus | Keepalive dijalankan manual (workflow_dispatch) -> Success, rpc_ping ok; Variables SUPABASE_URL & SUPABASE_ANON_KEY terisi |
+| R-03, R-04 | Belum | Backup pg_dump + latihan restore (sebelum go-live) |
+| R-05..R-07 | Belum | Saat persiapan PROD |

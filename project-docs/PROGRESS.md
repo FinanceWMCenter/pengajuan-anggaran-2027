@@ -44,3 +44,4 @@ Baca file ini + `10_DECISIONS_LOG.md` dulu setiap memulai sesi baru.
 | 2026-11-10 | D-40 | Divisi Project Expansion (grup sendiri) + data demo (12 bulan). Lokal: SQL lulus, e2e 94/94, audit tampilan 3.993/0. Menunggu: Finance menjalankan 02, 06, 99 di Supabase DEV |
 | 2026-11-10 | D-40 | 99 ditolak di DEV (ada program hasil uji coba) -> dibuat `db/99b_demo_project_expansion.sql` (tambah saja, teruji: data lain utuh, tidak dobel, reconcile SEMUA COCOK) |
 | 2026-11-10 | D-40 selesai di DEV | 02, 06 (PIN Project Expansion), 99b dijalankan Finance; web online menampilkan 13 divisi/8 grup. 99b dihapus dari repo (data demo kembali di satu tempat: 99_test_seed.sql) |
+| 2026-11-10 | Keepalive | Variables GitHub terisi; Keepalive Supabase #1 Success (R-02 lulus). Berikutnya: latihan backup & restore (R-03/R-04), UAT pilot, PROD |
