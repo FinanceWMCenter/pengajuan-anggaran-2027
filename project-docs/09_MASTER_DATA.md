@@ -2,7 +2,7 @@
 
 Data awal untuk `db/02_seed_master.sql`. Finance dapat menambah/ menonaktifkan kategori dan divisi lewat admin. **Kategori awal dari Finance tidak boleh dihapus.** Tidak ada kategori "Lain-lain".
 
-## 1. Grup dan divisi (12 divisi, 7 grup)
+## 1. Grup dan divisi (13 divisi, 8 grup)
 
 | Grup | Urut | Divisi (nama tampil) | Kode URL |
 |---|---|---|---|
@@ -18,10 +18,12 @@ Data awal untuk `db/02_seed_master.sql`. Finance dapat menambah/ menonaktifkan k
 | Legal and Compliance | 5 | Legal and Compliance | `legal-compliance` |
 | Finance & Data Analyst | 6 | Finance & Data Analyst | `finance-data-analyst` |
 | Physiotherapist | 7 | Physiotherapist | `physiotherapist` |
+| Project Expansion | 8 | Project Expansion | `project-expansion` |
 
 Catatan:
 - Singkatan HR-PD/EB/TA/OPS dipakai apa adanya (sesuai penyebutan Finance).
 - Physiotherapist = satu divisi; diisi satu orang senior yang ikut Raker.
+- Project Expansion = divisi berdiri sendiri (grup sendiri), ditambahkan 2026-11-10 (D-40).
 - Grup yang hanya punya satu divisi ditampilkan tanpa sub-judul.
 - Overview Finance menampilkan rollup per grup (mis. total Human Resource = 5 sub-divisi).
 
@@ -79,7 +81,7 @@ Tautan WhatsApp: `https://wa.me/6285284545564` (nomor tanpa spasi/ tanda plus).
 "Kendala atau pertanyaan? Hubungi Finance WM Center - finance.wmcenter@gmail.com - finance@wmcenter.id - WhatsApp +62 852-8454-5564"
 
 ## 9. Data demo (`99_test_seed.sql`, hanya DEV)
-- 158 program contoh yang realistis untuk klinik fisioterapi (mis. MCU karyawan, Job Fair kampus, alat shockwave, iklan digital bulanan), PIC dengan nama fiktif, 398 baris kebutuhan, total diajukan +/- Rp2,6 M.
-- **Setiap divisi punya program di setiap bulan Januari-Desember.** HR-EB, HR-TA, HR-GA/Purchasing, Operation, dan Brand and Communication punya 2 program di beberapa bulan. 20 program masih Draft.
+- 170 program contoh yang realistis untuk klinik fisioterapi (mis. MCU karyawan, Job Fair kampus, alat shockwave, iklan digital bulanan, ekspansi cabang Tangerang Selatan), PIC dengan nama fiktif, 433 baris kebutuhan, total diajukan +/- Rp3,44 M.
+- **Setiap divisi punya program di setiap bulan Januari-Desember.** HR-EB, HR-TA, HR-GA/Purchasing, Operation, dan Brand and Communication punya 2 program di beberapa bulan. 21 program masih Draft.
 - Ada nama program yang sama di bulan berbeda (mis. "Servis AC Berkala Semua Cabang" Januari dan Juli) untuk menguji alert program mirip.
 - Semua data demo ditandai `created_by_name = 'Data Demo'`. File ini **tidak** mengatur PIN (pakai `06_bootstrap.sql`). Hapus sebelum go-live dengan `98_clear_test_data.sql`.

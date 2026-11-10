@@ -229,7 +229,41 @@ demo_khusus (div, nama, kat, bulan, pic, status, items) as (values
   ["Akses jurnal online", "Software & Langganan", 1, "paket", 8500000, null],
   ["Buku referensi klinis", "ATK & Cetak", 10, "pcs", 650000, null]]'),
 ('physiotherapist', 'Perpanjangan STR & SIP Terapis', 'Perizinan, Legal & Kepatuhan', 10, 'Maya Anggraini, S.Ft', 'draft', '[
-  ["Biaya perpanjangan STR dan SIP", "Perizinan & Legal", 20, "orang", 350000, null]]')
+  ["Biaya perpanjangan STR dan SIP", "Perizinan & Legal", 20, "orang", 350000, null]]'),
+-- Project Expansion (D-40): ekspansi cabang baru Tangerang Selatan
+('project-expansion', 'Survei Lokasi Cabang Baru Tangerang Selatan', 'Riset & Pengembangan Layanan', 1, 'Rizky Maulana', 'diajukan', '[
+  ["Konsultan riset lokasi dan demografi", "Jasa", 1, "paket", 28000000, null],
+  ["Transport survei lapangan", "Transport", 10, "kali", 350000, "5 kandidat lokasi x 2 kunjungan"],
+  ["Konsumsi tim survei", "Konsumsi", 20, "porsi", 45000, null]]'),
+('project-expansion', 'Sewa Ruko Cabang Tangerang Selatan', 'Pengadaan Barang & Aset', 3, 'Rizky Maulana', 'diajukan', '[
+  ["Sewa ruko 2 lantai (tahun pertama)", "Sewa (venue, alat)", 1, "paket", 180000000, null],
+  ["Biaya notaris perjanjian sewa", "Perizinan & Legal", 1, "paket", 4500000, null]]'),
+('project-expansion', 'Desain & Renovasi Interior Cabang Baru', 'Renovasi & Pemeliharaan', 4, 'Intan Permatasari', 'diajukan', '[
+  ["Jasa desain interior klinik", "Jasa", 1, "paket", 25000000, null],
+  ["Renovasi interior dan instalasi", "Jasa", 185.5, "m2", 1250000, "luas bangunan"],
+  ["Signage dan papan nama", "Peralatan / Aset", 1, "set", 15000000, null]]'),
+('project-expansion', 'Perizinan Klinik & PBG Cabang Baru', 'Perizinan, Legal & Kepatuhan', 5, 'Intan Permatasari', 'diajukan', '[
+  ["Pengurusan PBG dan SLF", "Perizinan & Legal", 1, "paket", 22000000, null],
+  ["Izin operasional klinik", "Perizinan & Legal", 1, "paket", 12500000, null]]'),
+('project-expansion', 'Pengadaan Alat Fisioterapi Cabang Baru', 'Pengadaan Barang & Aset', 6, 'Rizky Maulana', 'diajukan', '[
+  ["Bed terapi elektrik", "Peralatan / Aset", 6, "unit", 14500000, null],
+  ["Alat elektroterapi (TENS/US)", "Peralatan / Aset", 4, "unit", 18000000, null],
+  ["Alat latihan dan matras", "Peralatan / Aset", 1, "paket", 22500000, null]]'),
+('project-expansion', 'Rekrutmen Tim Cabang Baru', 'Rekrutmen', 7, 'Intan Permatasari', 'diajukan', '[
+  ["Iklan lowongan terapis dan front office", "Marketing", 2, "paket", 1500000, null],
+  ["Psikotes kandidat", "Jasa", 40, "orang", 150000, null],
+  ["Medical check up pra-kerja", "Jasa", 12, "orang", 450000, null]]'),
+('project-expansion', 'Promosi Pra-Pembukaan Cabang Baru', 'Kampanye & Promosi', 8, 'Rizky Maulana', 'diajukan', '[
+  ["Iklan digital area Tangerang Selatan", "Marketing", 2, "bulan", 7500000, null],
+  ["Brosur dan spanduk", "ATK & Cetak", 1, "paket", 4500000, null],
+  ["Free screening postur di perumahan", "Operasional", 4, "kali", 2500000, null]]'),
+('project-expansion', 'Grand Opening Cabang Tangerang Selatan', 'Event', 9, 'Intan Permatasari', 'diajukan', '[
+  ["Event organizer grand opening", "Jasa", 1, "paket", 25000000, null],
+  ["Konsumsi tamu undangan", "Konsumsi", 200, "porsi", 75000, null],
+  ["Souvenir pengunjung", "Perlengkapan & Merchandise", 300, "pcs", 35000, null]]'),
+('project-expansion', 'Studi Kelayakan Cabang Ketiga (2028)', 'Riset & Pengembangan Layanan', 11, 'Rizky Maulana', 'draft', '[
+  ["Konsultan studi kelayakan", "Jasa", 1, "paket", 35000000, null],
+  ["Survei kandidat lokasi", "Transport", 8, "kali", 400000, null]]')
 ),
 -- Program rutin per divisi agar SETIAP divisi punya program di SETIAP bulan.
 -- mode 'kosong' = hanya mengisi bulan yang belum ada programnya;
@@ -278,7 +312,11 @@ tpl_raw (div, nama, kat, pic, mode, items) as (values
 ('physiotherapist', 'Diskusi Kasus Klinis ({bulan})', 'Riset & Pengembangan Layanan', 'Maya Anggraini, S.Ft', 'kosong', '[
   ["Narasumber tamu", "Honorarium / Narasumber", 1, "orang", 1500000, null],
   ["Konsumsi diskusi", "Konsumsi", 25, "porsi", 40000, null],
-  ["Cetak materi kasus", "ATK & Cetak", 25, "pcs", 10000, null]]')
+  ["Cetak materi kasus", "ATK & Cetak", 25, "pcs", 10000, null]]'),
+('project-expansion', 'Monitoring Proyek Ekspansi ({bulan})', 'Riset & Pengembangan Layanan', 'Rizky Maulana', 'kosong', '[
+  ["Transport kunjungan lokasi proyek", "Transport", 6, "kali", 300000, null],
+  ["Konsumsi rapat progres proyek", "Konsumsi", 15, "porsi", 45000, null],
+  ["Cetak laporan progres", "ATK & Cetak", 10, "pcs", 25000, null]]')
 ),
 tpl as (select row_number() over () as no, t.* from tpl_raw t),
 bulan (b, nama_bulan) as (values (1, 'Januari'), (2, 'Februari'), (3, 'Maret'), (4, 'April'), (5, 'Mei'), (6, 'Juni'),

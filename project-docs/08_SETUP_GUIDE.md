@@ -50,6 +50,11 @@ Ketik password user `postgres` bila diminta (bisa beberapa kali). Hasil akhir ha
 Jalankan ulang file yang berubah, berurutan, di SQL Editor: `03_functions.sql` -> `04_security.sql`. Keduanya aman diulang dan tidak menyentuh data program.
 Khusus perubahan D-38 (PIN Finance 8 -> 6 digit): jalankan `07_reset_semua_pin.sql` setelah mengganti kata 'TIDAK' menjadi 'YA'; salin 13 PIN baru yang tampil (sekali saja) ke password manager, lalu bagikan ulang ke PIC.
 
+## D1c. Menambah divisi baru (contoh: Project Expansion, D-40)
+1. Claude menambahkan divisi di `db/02_seed_master.sql` (dan contoh datanya di `99_test_seed.sql` untuk DEV).
+2. Di SQL Editor jalankan berurutan: `02_seed_master.sql` (hanya menambah yang belum ada) -> `06_bootstrap.sql` (hanya membuat PIN untuk divisi baru; PIN lain tidak berubah) -> (DEV saja) `99_test_seed.sql`. Bila 99 menolak karena DEV sudah berisi program hasil uji coba, minta Claude membuat skrip TAMBAH khusus divisi baru (hanya menambah, tidak menghapus, tidak dobel) - contoh: 99b untuk Project Expansion (2026-11-10, dipakai sekali lalu dihapus dari repo).
+3. Simpan PIN divisi baru dari hasil 06, lalu bagikan ke PIC-nya. Web otomatis menampilkan divisi baru (pita, Overview, export) tanpa perlu deploy.
+
 ## D2. Uji keamanan di Supabase (Fase 3 - WAJIB sebelum data asli masuk)
 1. Siapkan Project URL dan anon/publishable key DEV (Project Settings -> API / Data API).
 2. Terminal VS Code, dari folder repo (ganti isi tanda kutip):

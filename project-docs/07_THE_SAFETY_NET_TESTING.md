@@ -191,3 +191,7 @@ Project `anggaran-2027-dev` (Singapore, Free). SQL 01-05, 06_bootstrap, 99_test_
 | Kecepatan | Login 1 PIN dicek ke 13 akun: +/- 0,05-0,07 detik (lokal) |
 | Browser (e2e) | 94 cek lulus: pita 12 divisi urut & bergerak kanan->kiri, PIN langsung masuk divisi/Finance, tautan divisi + PIN -> kembali ke halaman tujuan, logout -> halaman masuk, "kurangi gerakan", tanpa scroll ke samping di 360/768/1366x650/1920 |
 | Audit angka tampilan | 3.682 angka, 0 selisih |
+
+## 14. Divisi ke-13 Project Expansion (D-40), 2026-11-10
+
+Simulasi pembaruan DEV (database versi sebelumnya -> 02, 06, 99 baru): 06 hanya membuat 1 PIN (Project Expansion), PIN 12 divisi lama & Finance tidak berubah; data demo 170 program, 13/13 divisi terisi 12 bulan; reconcile 1.531 angka SEMUA COCOK. Tes penuh: SQL lulus (8 grup/13 divisi), e2e 94/94 (pita 13 nama), audit tampilan 3.993 angka 0 selisih.

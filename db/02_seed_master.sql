@@ -23,12 +23,13 @@ from (values
   ('Marketing', 4),
   ('Legal and Compliance', 5),
   ('Finance & Data Analyst', 6),
-  ('Physiotherapist', 7)
+  ('Physiotherapist', 7),
+  ('Project Expansion', 8)                 -- D-40: divisi baru, berdiri sendiri
 ) as v(name, sort_order)
 where not exists (select 1 from public.division_groups g where g.name = v.name)
 order by v.sort_order;
 
--- Divisi (12)
+-- Divisi (13)
 insert into public.divisions (group_id, code, name, sort_order)
 select g.id, v.code, v.name, v.sort_order
 from (values
@@ -43,7 +44,8 @@ from (values
   ('Marketing',              'creative',             'Creative',                9),
   ('Legal and Compliance',   'legal-compliance',     'Legal and Compliance',   10),
   ('Finance & Data Analyst', 'finance-data-analyst', 'Finance & Data Analyst', 11),
-  ('Physiotherapist',        'physiotherapist',      'Physiotherapist',        12)
+  ('Physiotherapist',        'physiotherapist',      'Physiotherapist',        12),
+  ('Project Expansion',      'project-expansion',    'Project Expansion',      13)
 ) as v(group_name, code, name, sort_order)
 join public.division_groups g on g.name = v.group_name
 order by v.sort_order

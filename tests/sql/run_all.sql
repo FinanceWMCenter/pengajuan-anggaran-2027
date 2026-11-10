@@ -333,8 +333,8 @@ select rpc_logout(current_setting('test.tok_tmp'));
 select test.expect_error(format('select rpc_list_programs(%L, null)', current_setting('test.tok_tmp')), 'AUTH_EXPIRED', 'S-logout token tidak berlaku lagi');
 
 -- Data publik Home tanpa angka (F-01)
-select test.ok(jsonb_array_length(rpc_list_divisions()) = 7, 'F-01 7 grup');
-select test.ok((select sum(jsonb_array_length(g -> 'divisions')) from jsonb_array_elements(rpc_list_divisions()) g) = 12, 'F-01 12 divisi');
+select test.ok(jsonb_array_length(rpc_list_divisions()) = 8, 'F-01 8 grup (termasuk Project Expansion, D-40)');
+select test.ok((select sum(jsonb_array_length(g -> 'divisions')) from jsonb_array_elements(rpc_list_divisions()) g) = 13, 'F-01 13 divisi');
 select test.ok(rpc_list_divisions()::text !~ '[0-9]{4,}', 'F-01 Home tanpa angka/data program');
 select test.ok(not exists (select 1 from jsonb_array_elements(rpc_get_master() -> 'item_categories') c where lower(c ->> 'name') like 'lain%'), 'F-16 tidak ada kategori Lain-lain');
 
