@@ -89,13 +89,20 @@ powershell -ExecutionPolicy Bypass -File tests\rest_security_check.ps1 -Url "htt
 4. Catatan: GitHub dapat menonaktifkan workflow terjadwal pada repo tanpa aktivitas lama (sekitar 60 hari). Cek tab Actions berkala; push kecil membangunkannya lagi.
 
 ## I. Backup (wajib, mingguan selama masa pengumpulan)
-Paket free umumnya tidak punya backup harian otomatis (verifikasi). Lakukan:
 1. **Export dari web Finance** (xlsx) - cepat dan mudah dibaca.
-2. **Dump database penuh** (disarankan) dari komputer Anda:
-   - Supabase -> Project Settings -> Database -> **Connection string** (pilih mode yang cocok untuk IPv4, mis. session pooler), isi password database.
-   - Terminal: `pg_dump --no-owner --format=custom -f backup_YYYYMMDD.dump "<connection-string>"`
-   - Simpan file di folder di luar repo (mis. `D:\Backup\Anggaran2027\`). **Jangan commit file dump.**
-3. **Latihan restore sekali** sebelum go-live: buat database kosong lokal, lalu `pg_restore --no-owner -d anggaran_restore backup_YYYYMMDD.dump`, cek jumlah baris.
+2. **Backup database penuh** (Terminal VS Code, dari folder repo):
+   \Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows   -  tempel dari Supabase -> **Connect** -> Connection String -> **Shared/Session pooler** (port 5432). Bagian  biarkan apa adanya.
+   -  tempel password database Supabase (klik kanan sekali; tidak terlihat, itu normal) -> Enter.
+   - Hasil: **BACKUP BERHASIL**, file di  (di luar repo). Simpan salinan juga di tempat lain (mis. Google Drive Finance). **Jangan commit file .dump.**
+   - Untuk PROD tambahkan .
+   - Lupa password database Supabase? Connect -> **Reset database password** (aman: web & keepalive tidak memakai password ini).
+3. **Latihan restore** (minimal sekali sebelum go-live, lalu sesekali): Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows -> memulihkan backup terbaru ke Postgres lokal (database ) dan menjalankan audit angka; hasil harus **RESTORE BERHASIL** + SEMUA COCOK. Butuh password Postgres lokal (bila lupa, minta Claude menjalankannya/ memandu reset).
 
 ## J. Checklist go-live
 - [ ] Semua tes P0 lulus (file 07); `tests/rest_security_check.ps1` lulus di PROD; S-14 (tidak ada secret di repo) diulang.

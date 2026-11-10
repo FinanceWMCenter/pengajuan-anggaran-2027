@@ -202,5 +202,6 @@ Simulasi pembaruan DEV (database versi sebelumnya -> 02, 06, 99 baru): 06 hanya 
 |---|---|---|
 | R-01 | Lulus | Pages hanya dari `web/`; `project-docs/` 404 di URL publik |
 | R-02 | Lulus | Keepalive dijalankan manual (workflow_dispatch) -> Success, rpc_ping ok; Variables SUPABASE_URL & SUPABASE_ANON_KEY terisi |
-| R-03, R-04 | Belum | Backup pg_dump + latihan restore (sebelum go-live) |
+| R-03 | Lulus | `tools/backup.ps1` dari Supabase DEV (Session pooler): 10 tabel, 119 KB, disimpan di DokumenBackup-Anggaran2027 (di luar repo) |
+| R-04 | Lulus | `tools/restore_test.ps1`: backup asli dipulihkan ke Postgres lokal; 172 program, 437 baris, 31 log, total diajukan Rp3.455.406.404; reconcile 1.541 angka SEMUA COCOK |
 | R-05..R-07 | Belum | Saat persiapan PROD |
