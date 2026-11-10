@@ -40,3 +40,4 @@ Baca file ini + `10_DECISIONS_LOG.md` dulu setiap memulai sesi baru.
 | 2026-11-09 | Push & deploy | Commit d0d6ee8 di-push; GitHub Pages sukses; web tayang; R-01 (dokumen tidak terbuka di web) lulus |
 | 2026-11-09 | 3 | Supabase DEV aktif; reconcile SEMUA COCOK; rest_security_check SEMUA LULUS; config.js diisi (URL + publishable key DEV); BUG-017 (seed tanpa tabel sementara), BUG-018 (skrip cek PS 5.1) |
 | 2026-11-10 | Fitur | Login PIN langsung + PIN Finance 6 digit + PIN unik (D-38), pita divisi berjalan (D-39); `db/07_reset_semua_pin.sql`; BUG-019, BUG-020. Lokal: SQL 142/142, e2e 94/94, audit tampilan 3.682/0 selisih. Menunggu: Finance menjalankan 03, 04, 07 di Supabase DEV, lalu push web |
+| 2026-11-10 | Rilis D-38/D-39 | Supabase DEV: 03, 04, 07 dijalankan (13 PIN baru 6 digit disimpan Finance); web e741214 tayang; cek online: pita 12 divisi bergerak, PIN salah ditolak, login PIN salah +/- 0,9 dtk (termasuk jeda 0,5 dtk) |
