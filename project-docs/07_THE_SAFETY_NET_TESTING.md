@@ -267,3 +267,5 @@ Diuji pada salinan data DEV; `05_overview.sql` dijalankan sebagai satu Run, dua 
 | Nama berisi HTML tampil sebagai teks; layar HP 390px muat | Lulus |
 
 511 cek lulus. Regresi: SQL 150, e2e 94/94 (data dummy & salinan DEV), UAT 63/63, animasi 17/17, audit tampilan 4.020 angka selisih 0, reconcile SEMUA COCOK, utils 38/38.
+
+Revisi (kolom pertama Bulan, tanpa Tgl Pengajuan, kelompok + subtotal per divisi): isi setiap baris (bulan, divisi, nama, kategori, PIC, nilai; untuk kebutuhan juga uraian, satuan, harga, catatan) dicocokkan dengan database; setiap subtotal = jumlah barisnya = database; jumlah subtotal = TOTAL; urutan divisi = tabel Per divisi. 3.018 cek lulus (1.750 nilai). Regresi diulang: SQL 150, e2e 94/94 (data dummy & salinan DEV), UAT 63/63, animasi 17/17, audit tampilan 4.020 angka selisih 0, utils 38/38, reconcile SEMUA COCOK (4 kali: setelah e2e dummy, e2e DEV, UAT, dan pada data salinan DEV).

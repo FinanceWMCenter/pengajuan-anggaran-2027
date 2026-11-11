@@ -98,8 +98,8 @@ export function siteFooter(c, cls = 'site-footer') {
     h('a', { href: c.wa_link, target: '_blank', rel: 'noopener noreferrer', class: 'nowrap' }, `WhatsApp ${c.wa}`));
 }
 
-/** Tabel sederhana dalam kartu. columns: [{label, cls?, render(row)->Node|string}] */
-export function dataTable({ columns, rows, footer = null, empty = 'Belum ada data.', rowClass = null, caption = null, onRowClick = null, rowClickable = null }) {
+/** Tabel sederhana dalam kartu. columns: [{label, cls?, render(row)->Node|string}]. customRow(row) -> sel <td> untuk baris khusus (subtotal), atau null. */
+export function dataTable({ columns, rows, footer = null, empty = 'Belum ada data.', rowClass = null, caption = null, onRowClick = null, rowClickable = null, customRow = null }) {
   const thead = h('thead', null, h('tr', null, columns.map((c) => h('th', { scope: 'col', class: c.thCls || null }, c.label))));
   const rowProps = (r, i) => {
     const cls = rowClass ? rowClass(r, i) : null;
@@ -107,7 +107,12 @@ export function dataTable({ columns, rows, footer = null, empty = 'Belum ada dat
     return { class: cls ? `${cls} is-clickable` : 'is-clickable', ...clickableProps(() => onRowClick(r, i)) };
   };
   const tbody = h('tbody', null, rows.length
-    ? rows.map((r, i) => h('tr', rowProps(r, i), columns.map((c) => h('td', { class: c.cls || null }, c.render(r, i)))))
+    ? rows.map((r, i) => {
+      const special = customRow ? customRow(r, i) : null;
+      return special
+        ? h('tr', { class: 'is-subtotal' }, special)
+        : h('tr', rowProps(r, i), columns.map((c) => h('td', { class: c.cls || null }, c.render(r, i))));
+    })
     : h('tr', null, h('td', { colspan: columns.length, class: 'table-empty' }, empty)));
   const tfoot = footer ? h('tfoot', null, h('tr', null, footer)) : null;
   return h('div', { class: 'wm-table-wrap' }, h('table', { class: 'wm-table' }, caption ? h('caption', { class: 'sr-only' }, caption) : null, thead, tbody, tfoot));

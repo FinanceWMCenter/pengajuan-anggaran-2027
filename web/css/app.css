@@ -504,6 +504,8 @@ body.has-modal { overflow: hidden; }
 .drill .wm-table-wrap { max-height: min(60vh, 38rem); overflow: auto; }
 .drill .wm-table thead th { position: sticky; top: 0; z-index: 1; background: var(--accent); }
 .drill .wm-table tfoot td { position: sticky; bottom: 0; z-index: 1; }
+.drill .wm-table tr.is-subtotal td { font-weight: 600; background: color-mix(in srgb, var(--accent) 60%, transparent); border-bottom: 2px solid var(--border); }
+.drill .wm-table tr.is-subtotal td.cell-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .drill-foot { margin: 0; font-size: 0.875rem; color: var(--muted-foreground); }
 
 /* ---------- Animasi selamat datang setelah PIN benar (D-41, web/js/ui/welcome.js) ---------- */

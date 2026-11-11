@@ -80,23 +80,48 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
     render();
   }
 
+  const divisionOrder = new Map(perDivisi.map((x, i) => [x.code, i]));
+  const subtotalCells = (r) => r.subtotalCells || null;
+
+  /**
+   * Susun baris per divisi (urutan sama dengan tabel Per divisi; di dalam divisi tetap dari terbesar),
+   * tiap divisi ditutup baris subtotal. Baris subtotal hanya untuk tampilan, tidak ikut dihitung di total.
+   */
+  function groupByDivision(rows, programOf, amountKey, unit, cellsFor) {
+    const groups = new Map();
+    for (const r of rows) {
+      const p = programOf(r);
+      const code = p?.division_code ?? '';
+      if (!groups.has(code)) groups.set(code, { name: p?.division_name ?? '-', rows: [] });
+      groups.get(code).rows.push(r);
+    }
+    const rank = (code) => divisionOrder.get(code) ?? perDivisi.length;
+    return [...groups.entries()]
+      .sort(([a, x], [b, y]) => rank(a) - rank(b) || x.name.localeCompare(y.name))
+      .flatMap(([, g]) => [
+        ...g.rows,
+        { subtotalCells: cellsFor(`Subtotal ${g.name} · ${plural(g.rows.length, unit)}`, sumBy(g.rows, amountKey)) },
+      ]);
+  }
+
   /** Tabel daftar program; hide = kolom yang sudah jelas dari judul pop-up. */
   function programTable(rows, linkTo, hide = {}) {
     const columns = [
-      { label: 'Tgl Pengajuan', cls: 'nowrap', render: (p) => formatDate(p.tanggal_pengajuan) },
+      { label: 'Bulan', cls: 'nowrap', render: (p) => monthName(p.periode_bulan, year) },
       hide.division ? null : { label: 'Divisi', cls: 'cell-start', render: (p) => p.division_name },
       { label: 'Nama Program', cls: 'cell-start cell-name', render: (p) => linkTo(`#/finance/p/${p.id}`, p.nama_program) },
       hide.category ? null : { label: 'Kategori', cls: 'cell-start', render: (p) => p.program_category_name },
-      hide.month ? null : { label: 'Bulan', render: (p) => monthName(p.periode_bulan) },
       { label: 'PIC', cls: 'cell-start', render: (p) => p.pic_nama },
       { label: 'Total', cls: 'cell-num', render: (p) => formatRupiah(p.total) },
     ].filter(Boolean);
     const total = sumBy(rows, 'total');
+    const display = hide.division ? rows
+      : groupByDivision(rows, (p) => p, 'total', 'program', (label, amount) => totalFooter(columns.length - 1, label, amount));
     return {
       total,
       count: rows.length,
       nodes: [dataTable({
-        columns, rows, empty: 'Belum ada program Diajukan.',
+        columns, rows: display, customRow: subtotalCells, empty: 'Belum ada program Diajukan.',
         footer: totalFooter(columns.length - 1, `TOTAL · ${plural(rows.length, 'program')}`, total),
       })],
     };
@@ -119,7 +144,7 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
         title: monthName(r.bulan, year),
         description: summary(r.count, 'program', r.total),
         expected: { total: r.total, count: r.count },
-        build: (data, linkTo) => programTable(data.programs.filter((p) => p.periode_bulan === r.bulan), linkTo, { month: true }),
+        build: (data, linkTo) => programTable(data.programs.filter((p) => p.periode_bulan === r.bulan), linkTo),
       });
     },
 
@@ -234,10 +259,9 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
           const rows = data.items.filter((i) => i.item_category_id === r.id);
           const total = sumBy(rows, 'subtotal');
           const columns = [
-            { label: 'Tgl Pengajuan', cls: 'nowrap', render: (i) => formatDate(programs.get(i.program_id)?.tanggal_pengajuan) },
+            { label: 'Bulan', cls: 'nowrap', render: (i) => monthName(programs.get(i.program_id)?.periode_bulan, year) },
             { label: 'Divisi', cls: 'cell-start', render: (i) => programs.get(i.program_id)?.division_name },
             { label: 'Nama Program', cls: 'cell-start cell-name', render: (i) => linkTo(`#/finance/p/${i.program_id}`, programs.get(i.program_id)?.nama_program || '-') },
-            { label: 'Bulan', render: (i) => monthName(programs.get(i.program_id)?.periode_bulan) },
             { label: 'Uraian', cls: 'cell-start', render: (i) => i.uraian },
             { label: 'Qty', cls: 'num', render: (i) => formatNumber(i.qty) },
             { label: 'Satuan', render: (i) => i.satuan },
@@ -245,11 +269,13 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
             { label: 'Subtotal', cls: 'cell-num', render: (i) => formatRupiah(i.subtotal) },
             { label: 'Catatan', cls: 'cell-start', render: (i) => i.catatan || '' },
           ];
+          const display = groupByDivision(rows, (i) => programs.get(i.program_id), 'subtotal', 'baris',
+            (label, amount) => totalFooter(columns.length - 2, label, amount, 1));
           return {
             total,
             count: rows.length,
             nodes: [dataTable({
-              columns, rows,
+              columns, rows: display, customRow: subtotalCells,
               footer: totalFooter(columns.length - 2, `TOTAL · ${plural(rows.length, 'baris')}`, total, 1),
             })],
           };
