@@ -147,6 +147,8 @@ end $$;
 
 -- S-07: token divisi tidak bisa memakai fungsi finance
 select test.expect_error(format('select rpc_f_overview(%L)', current_setting('test.tok_pd')), 'FORBIDDEN', 'S-07 rpc_f_overview');
+select test.expect_error(format('select rpc_f_overview_detail(%L)', current_setting('test.tok_pd')), 'FORBIDDEN', 'D-42 sesi divisi tidak bisa membuka rincian Overview Finance');
+select test.expect_error($q$select rpc_f_overview_detail('tebakan')$q$, 'AUTH_EXPIRED', 'D-42 token acak ditolak');
 select test.expect_error(format('select rpc_f_set_division_pin(%L, 1, %L)', current_setting('test.tok_pd'), '222222'), 'FORBIDDEN', 'S-07 rpc_f_set_division_pin');
 select test.expect_error(format('select rpc_f_export(%L, %L)', current_setting('test.tok_pd'), '{}'), 'FORBIDDEN', 'S-07 rpc_f_export');
 select test.expect_error(format('select rpc_f_audit_log(%L, %L)', current_setting('test.tok_pd'), '{}'), 'FORBIDDEN', 'S-07 rpc_f_audit_log');
@@ -342,6 +344,18 @@ select test.ok(not exists (select 1 from jsonb_array_elements(rpc_get_master() -
 -- O: REKONSILIASI OVERVIEW (dibandingkan dengan query mentah sebagai postgres)
 -- =====================================================================
 select set_config('test.ov_fin', rpc_f_overview(current_setting('test.tok_fin'))::text, false);
+
+-- D-42: rincian pop-up = dasar angka Overview (hanya Diajukan; total & jumlah sama persis)
+select set_config('test.ov_det', rpc_f_overview_detail(current_setting('test.tok_fin'))::text, false);
+select test.ok((select coalesce(sum((p ->> 'total')::numeric), 0) from jsonb_array_elements(current_setting('test.ov_det')::jsonb -> 'programs') p)
+               = (current_setting('test.ov_fin')::jsonb ->> 'total')::numeric, 'D-42 jumlah total program rincian = total Overview');
+select test.ok((select coalesce(sum((i ->> 'subtotal')::numeric), 0) from jsonb_array_elements(current_setting('test.ov_det')::jsonb -> 'items') i)
+               = (current_setting('test.ov_fin')::jsonb ->> 'total')::numeric, 'D-42 jumlah subtotal baris rincian = total Overview');
+select test.ok(jsonb_array_length(current_setting('test.ov_det')::jsonb -> 'programs') = (current_setting('test.ov_fin')::jsonb ->> 'program_count')::int, 'D-42 jumlah program rincian = jumlah program Overview');
+reset role;
+select test.ok(not exists (select 1 from jsonb_array_elements(current_setting('test.ov_det')::jsonb -> 'programs') x join programs p on p.id = (x ->> 'id')::uuid where p.status <> 'diajukan'), 'D-42 rincian tidak memuat draft');
+select test.ok(not has_function_privilege('anon', 'public._ov_programs(smallint)', 'execute'), 'D-42 pembantu internal tetap tertutup');
+set role anon;
 select set_config('test.ov_eb', rpc_overview_division(current_setting('test.tok_eb'), 'hr-eb')::text, false);
 select set_config('test.export_all', rpc_f_export(current_setting('test.tok_fin'), '{"status":"all"}')::text, false);
 

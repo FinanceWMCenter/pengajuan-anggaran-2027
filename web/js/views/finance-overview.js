@@ -6,11 +6,12 @@ import { getYear } from '../store.js';
 import { refresh } from '../router.js';
 import { pageHead, errorBlock, skeletonStats, dataTable, flash } from '../ui/components.js';
 import { renderOverview } from './overview-render.js';
+import { createOverviewDrill } from './finance-overview-detail.js';
 
 export async function financeOverviewView(main) {
   main.append(pageHead({
     title: 'Overview Finance',
-    subtitle: 'Seluruh pengajuan anggaran 2027 dari semua divisi',
+    subtitle: 'Seluruh pengajuan anggaran 2027 dari semua divisi. Klik kartu atau baris untuk melihat rinciannya.',
     actions: [
       h('a', { class: 'wm-btn wm-btn-outline', href: '#/finance/programs' }, icon('list'), 'Semua Program'),
       h('a', { class: 'wm-btn wm-btn-outline', href: '#/finance/export' }, icon('download'), 'Export Excel'),
@@ -30,6 +31,7 @@ export async function financeOverviewView(main) {
 
   const filled = d.division_count - d.belum_mengisi.length;
   const total = Number(d.total) || 0;
+  const drill = createOverviewDrill({ year, perDivisi: d.per_divisi, totals: { total, count: d.program_count } });
   const pctBar = (pct) => {
     const el = h('div', { class: 'table-bar', role: 'img', 'aria-label': formatPercent(pct) });
     el.style.setProperty('width', `${Math.max(0, Math.min(100, Number(pct) || 0))}%`);
@@ -49,7 +51,7 @@ export async function financeOverviewView(main) {
       : flash('success', 'Semua divisi sudah mengisi minimal satu pengajuan.'));
 
   body.replaceChildren(
-    ...renderOverview(d, { year, finance: true, programHref: (r) => `#/finance/p/${r.id}` }),
+    ...renderOverview(d, { year, finance: true, programHref: (r) => `#/finance/p/${r.id}`, drill }),
     h('div', { class: 'grid-2' },
       h('section', { class: 'wm-card card-table' },
         h('div', { class: 'card-head' }, h('div', null, h('h2', { class: 'wm-card-title' }, 'Per grup'), h('p', { class: 'wm-card-subtitle' }, 'Rollup divisi per grup (mis. Human Resource = 5 divisi)'))),
@@ -62,13 +64,16 @@ export async function financeOverviewView(main) {
             { label: '%', cls: 'cell-num', render: (r) => formatPercent(r.pct) },
           ],
           rows: d.per_grup,
+          onRowClick: (r) => drill.group(r),
+          rowClickable: (r) => r.count > 0,
         })),
       statusCard),
     h('section', { class: 'wm-card card-table' },
-      h('div', { class: 'card-head' }, h('div', null, h('h2', { class: 'wm-card-title' }, 'Per divisi'), h('p', { class: 'wm-card-subtitle' }, 'Klik nama divisi untuk melihat programnya (hanya lihat)'))),
+      h('div', { class: 'card-head' }, h('div', null, h('h2', { class: 'wm-card-title' }, 'Per divisi'), h('p', { class: 'wm-card-subtitle' }, 'Klik baris untuk melihat program divisi tersebut'))),
       dataTable({
+        onRowClick: (r) => drill.division(r),
         columns: [
-          { label: 'Divisi', cls: 'cell-start', render: (r) => h('a', { href: `#/d/${r.code}` }, r.name) },
+          { label: 'Divisi', cls: 'cell-start', render: (r) => r.name },
           { label: 'Grup', cls: 'cell-start', render: (r) => r.group_name },
           { label: 'Program', render: (r) => String(r.count) },
           { label: 'Draft', render: (r) => String(r.draft_count) },

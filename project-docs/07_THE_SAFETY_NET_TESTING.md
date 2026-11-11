@@ -250,3 +250,20 @@ Total UAT baru: 63/63 lulus. Tes SQL 143 lulus; utils 38/38.
 | Tanpa error JavaScript (termasuk mode gelap) | Lulus |
 
 17/17 lulus. Regresi: e2e 94/94 (data dummy & salinan DEV), UAT 63/63, audit tampilan 4.020 angka selisih 0, utils 38/38.
+
+## 18. Pop-up rincian Overview Finance (D-42), 2026-11-11
+
+Diuji pada salinan data DEV; `05_overview.sql` dijalankan sebagai satu Run, dua kali berturut-turut (aman diulang).
+
+| Uji | Hasil |
+|---|---|
+| Semua baris yang bisa diklik (bulan, kuartal, top program, kedua kategori, grup, divisi) dan 6 kartu: angka Overview = TOTAL pop-up = jumlah kolom = hitungan langsung database | 383 angka cocok |
+| Kolom tabel Overview tidak berubah; kartu Rata-rata tidak bisa diklik | Lulus |
+| Sesi divisi / token acak ditolak; rincian tanpa draft; pembantu internal tetap tertutup | Lulus (tes SQL) |
+| Overview divisi: tidak ada yang bisa diklik, tautan tetap | Lulus |
+| Enter/Esc, klik dobel mouse = 1 pop-up, Back & tautan menutup pop-up | Lulus |
+| Daftar panjang: judul kolom dan baris TOTAL tetap terlihat | Lulus |
+| Koneksi putus: pesan + Coba lagi; data berubah: peringatan + Muat ulang | Lulus |
+| Nama berisi HTML tampil sebagai teks; layar HP 390px muat | Lulus |
+
+511 cek lulus. Regresi: SQL 150, e2e 94/94 (data dummy & salinan DEV), UAT 63/63, animasi 17/17, audit tampilan 4.020 angka selisih 0, reconcile SEMUA COCOK, utils 38/38.

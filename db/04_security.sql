@@ -60,6 +60,9 @@ begin
   if to_regprocedure('public.rpc_f_overview(text)') is not null then
     grant execute on function public.rpc_f_overview(text) to anon;
   end if;
+  if to_regprocedure('public.rpc_f_overview_detail(text)') is not null then
+    grant execute on function public.rpc_f_overview_detail(text) to anon;
+  end if;
 end;
 $$;
 -- Fungsi berawalan "_" (pembantu internal) sengaja TIDAK diberi izin.

@@ -16,7 +16,7 @@ let openCount = 0;
  * @param {boolean} [o.danger]
  * @returns {Promise<any>} value tombol yang diklik, atau null bila dibatalkan
  */
-export function openDialog({ title, description, body, actions = [], dismissible = true, wide = false, danger = false }) {
+export function openDialog({ title, description, body, actions = [], dismissible = true, wide = false, xwide = false, danger = false, onOpen = null }) {
   return new Promise((resolve) => {
     const previousFocus = document.activeElement;
     const titleId = `dlg-title-${Math.random().toString(36).slice(2, 8)}`;
@@ -42,7 +42,7 @@ export function openDialog({ title, description, body, actions = [], dismissible
     }, a.label));
 
     const card = h('div', {
-      class: `wm-modal-card${wide ? ' is-wide' : ''}${danger ? ' is-danger' : ''}`,
+      class: `wm-modal-card${wide ? ' is-wide' : ''}${xwide ? ' is-xwide' : ''}${danger ? ' is-danger' : ''}`,
       role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, 'aria-describedby': descId,
     },
     h('div', null,
@@ -91,6 +91,7 @@ export function openDialog({ title, description, body, actions = [], dismissible
     document.body.append(overlay);
     openCount += 1;
     document.body.classList.add('has-modal');
+    if (onOpen) onOpen(close); // pemanggil boleh menutup dialog sendiri (mis. saat pindah halaman)
 
     const autofocusIdx = actions.findIndex((a) => a.autofocus);
     const firstInput = card.querySelector('input, textarea, select');

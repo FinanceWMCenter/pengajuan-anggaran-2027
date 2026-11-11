@@ -210,6 +210,55 @@ begin
 end;
 $$;
 
+-- Rincian untuk pop-up Overview Finance (D-42). Hanya membaca; hanya program Diajukan (dasar yang sama dengan angka Overview).
+-- Dibuka sekali saat pop-up pertama diklik, sehingga halaman Overview tetap ringan.
+create or replace function public.rpc_f_overview_detail(p_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s public.sessions := public._require_session(p_token, 'finance');
+begin
+  return jsonb_build_object(
+    'programs', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', o.id,
+               'division_code', d.code, 'division_name', d.name, 'group_name', g.name,
+               'nama_program', o.nama_program,
+               'program_category_id', o.program_category_id, 'program_category_name', pc.name,
+               'periode_bulan', o.periode_bulan,
+               'pic_nama', p.pic_nama,
+               'tanggal_pengajuan', p.tanggal_pengajuan,
+               'total', o.total
+             ) order by o.total desc, lower(o.nama_program), o.id)
+      from public._ov_programs(null::smallint) o
+      join public.programs p on p.id = o.id
+      join public.divisions d on d.id = o.division_id
+      join public.division_groups g on g.id = d.group_id
+      join public.program_categories pc on pc.id = o.program_category_id
+    ), '[]'::jsonb),
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'program_id', i.program_id,
+               'urutan', i.urutan,
+               'uraian', i.uraian,
+               'item_category_id', i.item_category_id, 'item_category_name', ic.name,
+               'qty', i.qty,
+               'satuan', i.satuan,
+               'harga_satuan', i.harga_satuan,
+               'subtotal', i.subtotal,
+               'catatan', i.catatan
+             ) order by i.subtotal desc, i.program_id, i.urutan)
+      from public._ov_programs(null::smallint) o
+      join public.program_items i on i.program_id = o.id
+      left join public.item_categories ic on ic.id = i.item_category_id
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
 -- Izin: hanya fungsi rpc_*; pembantu (_overview, _ov_programs, _overview_finance) tetap tertutup
 revoke all on function public._overview(smallint, int) from public, anon, authenticated;
 revoke all on function public._ov_programs(smallint) from public, anon, authenticated;
@@ -218,3 +267,5 @@ revoke all on function public.rpc_overview_division(text, text) from public, ano
 revoke all on function public.rpc_f_overview(text) from public, anon, authenticated;
 grant execute on function public.rpc_overview_division(text, text) to anon;
 grant execute on function public.rpc_f_overview(text) to anon;
+revoke all on function public.rpc_f_overview_detail(text) from public, anon, authenticated;
+grant execute on function public.rpc_f_overview_detail(text) to anon;

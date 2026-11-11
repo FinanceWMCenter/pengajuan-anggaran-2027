@@ -23,16 +23,26 @@ export function pageHead({ title, subtitle, actions = [], badge = null }) {
 }
 
 /** Panel merek (satu per halaman): angka utama. */
-export function brandPanel({ label, value, note, iconName = 'coins' }) {
-  return h('div', { class: 'wm-card wm-card-brand' },
+/** Atribut untuk elemen non-tombol yang membuka pop-up saat diklik (mouse, sentuh, Enter, Spasi). */
+function clickableProps(fn) {
+  return {
+    tabindex: 0,
+    'aria-haspopup': 'dialog',
+    onclick: (e) => { if (!e.target.closest('a, button')) fn(); },
+    onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } },
+  };
+}
+
+export function brandPanel({ label, value, note, iconName = 'coins', onClick = null }) {
+  return h('div', { class: `wm-card wm-card-brand${onClick ? ' is-clickable' : ''}`, ...(onClick ? { role: 'button', ...clickableProps(onClick) } : {}) },
     h('div', { class: 'brand-label' }, icon(iconName), label),
     h('div', { class: 'brand-value', title: formatRupiah(value) }, formatRupiahShort(value)),
     h('div', { class: 'brand-note' }, note ?? formatRupiah(value)));
 }
 
-export function statCard({ label, value, note, iconName = 'layers', chip = '', isText = false, href = null }) {
+export function statCard({ label, value, note, iconName = 'layers', chip = '', isText = false, href = null, onClick = null }) {
   const tag = href ? 'a' : 'div';
-  return h(tag, { class: 'wm-stat', href },
+  return h(tag, { class: `wm-stat${onClick ? ' is-clickable' : ''}`, href, ...(onClick ? { role: 'button', ...clickableProps(onClick) } : {}) },
     h('div', { class: 'wm-stat-label' }, h('span', { class: `wm-chip ${chip}` }, icon(iconName)), label),
     h('div', { class: `wm-stat-value${isText ? ' is-text' : ''}` }, value),
     note ? h('div', { class: 'wm-stat-note' }, note) : null);
@@ -89,10 +99,15 @@ export function siteFooter(c, cls = 'site-footer') {
 }
 
 /** Tabel sederhana dalam kartu. columns: [{label, cls?, render(row)->Node|string}] */
-export function dataTable({ columns, rows, footer = null, empty = 'Belum ada data.', rowClass = null, caption = null }) {
+export function dataTable({ columns, rows, footer = null, empty = 'Belum ada data.', rowClass = null, caption = null, onRowClick = null, rowClickable = null }) {
   const thead = h('thead', null, h('tr', null, columns.map((c) => h('th', { scope: 'col', class: c.thCls || null }, c.label))));
+  const rowProps = (r, i) => {
+    const cls = rowClass ? rowClass(r, i) : null;
+    if (!onRowClick || (rowClickable && !rowClickable(r, i))) return { class: cls };
+    return { class: cls ? `${cls} is-clickable` : 'is-clickable', ...clickableProps(() => onRowClick(r, i)) };
+  };
   const tbody = h('tbody', null, rows.length
-    ? rows.map((r, i) => h('tr', { class: rowClass ? rowClass(r, i) : null }, columns.map((c) => h('td', { class: c.cls || null }, c.render(r, i)))))
+    ? rows.map((r, i) => h('tr', rowProps(r, i), columns.map((c) => h('td', { class: c.cls || null }, c.render(r, i)))))
     : h('tr', null, h('td', { colspan: columns.length, class: 'table-empty' }, empty)));
   const tfoot = footer ? h('tfoot', null, h('tr', null, footer)) : null;
   return h('div', { class: 'wm-table-wrap' }, h('table', { class: 'wm-table' }, caption ? h('caption', { class: 'sr-only' }, caption) : null, thead, tbody, tfoot));

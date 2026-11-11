@@ -473,6 +473,7 @@ button.wm-nav-item { width: 100%; border: 0; border-left: 3px solid transparent;
 .wm-modal-card h2 { margin: 0; font-size: 1.125rem; font-weight: 600; }
 .wm-modal-card .dialog-desc { margin: 0.375rem 0 0; font-size: 0.875rem; color: var(--muted-foreground); }
 .wm-modal-card.is-wide { max-width: 44rem; }
+.wm-modal-card.is-xwide { max-width: 76rem; }
 .wm-modal-card.is-danger { border-top: 4px solid var(--destructive); }
 .dialog-body { font-size: 0.9375rem; }
 .dialog-summary { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.375rem 1rem; font-size: 0.875rem; }
@@ -492,6 +493,18 @@ body.has-modal { overflow: hidden; }
 /* ---------- Halaman pemuatan & galat ---------- */
 .page-loading { padding: 3rem 1rem; text-align: center; color: var(--muted-foreground); }
 .page-error { max-width: 36rem; margin: 3rem auto; }
+
+/* ---------- Overview Finance: kartu/baris bisa diklik + pop-up rincian (D-42) ---------- */
+.wm-table tr.is-clickable { cursor: pointer; }
+.wm-stat.is-clickable, .wm-card-brand.is-clickable { cursor: pointer; transition: box-shadow 0.15s ease, transform 0.15s ease; }
+.wm-stat.is-clickable:hover, .wm-card-brand.is-clickable:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.wm-table tr.is-clickable:focus-visible, .wm-stat.is-clickable:focus-visible, .wm-card-brand.is-clickable:focus-visible { outline: 2px solid var(--brand-orange); outline-offset: -2px; }
+.drill > * + * { margin-top: 0.75rem; }
+/* Judul kolom dan baris TOTAL tetap terlihat saat daftarnya panjang */
+.drill .wm-table-wrap { max-height: min(60vh, 38rem); overflow: auto; }
+.drill .wm-table thead th { position: sticky; top: 0; z-index: 1; background: var(--accent); }
+.drill .wm-table tfoot td { position: sticky; bottom: 0; z-index: 1; }
+.drill-foot { margin: 0; font-size: 0.875rem; color: var(--muted-foreground); }
 
 /* ---------- Animasi selamat datang setelah PIN benar (D-41, web/js/ui/welcome.js) ---------- */
 .welcome { position: fixed; inset: 0; z-index: 100; cursor: pointer; color: #fff; -webkit-tap-highlight-color: transparent; }
