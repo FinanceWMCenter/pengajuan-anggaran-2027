@@ -22,6 +22,8 @@ begin
   select count(*) into n_prog from public.programs;
   delete from public.programs;          -- baris kebutuhan ikut terhapus (cascade)
   delete from public.audit_log;
+  delete from public.program_item_history;
+  delete from public.notifications;
   delete from public.sessions;
   delete from public.login_attempts;
   update public.divisions set pin_hash = null, pin_updated_at = null;

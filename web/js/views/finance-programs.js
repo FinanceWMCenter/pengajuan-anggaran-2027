@@ -3,7 +3,7 @@
 import { h, formatRupiah, formatDate, monthName, MONTHS, normalize } from '../utils.js';
 import { rpc, errorMessage } from '../api.js';
 import { refresh } from '../router.js';
-import { pageHead, statusBadge, dataTable, errorBlock, loadingBlock, emptyState } from '../ui/components.js';
+import { pageHead, statusBadge, revisedBadge, dataTable, errorBlock, loadingBlock, emptyState } from '../ui/components.js';
 import { deleteProgram } from './program-actions.js';
 
 const FILTER_KEY = 'wm-anggaran-filter-finance';
@@ -66,7 +66,7 @@ export async function financeProgramsView(main) {
         { label: 'Bulan', render: (p) => monthName(p.periode_bulan) },
         { label: 'PIC', cls: 'cell-start', render: (p) => p.pic_nama },
         { label: 'Total (Rp)', cls: 'cell-num', render: (p) => formatRupiah(p.total) },
-        { label: 'Status', render: (p) => statusBadge(p.status) },
+        { label: 'Status', render: (p) => [statusBadge(p.status), p.revised_by_finance ? h('div', { class: 'item-marks' }, revisedBadge()) : null] },
         { label: 'Tgl Pengajuan', cls: 'nowrap', render: (p) => formatDate(p.tanggal_pengajuan) },
         {
           label: 'Aksi', cls: 'cell-actions', render: (p) => [

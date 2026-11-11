@@ -44,7 +44,7 @@ function Check([bool]$ok, [string]$name, [string]$detail = "") {
 }
 
 # S-01 / S-03: tabel tidak bisa dibaca
-$tables = "app_settings", "division_groups", "divisions", "program_categories", "item_categories", "programs", "program_items", "sessions", "login_attempts", "audit_log"
+$tables = "app_settings", "division_groups", "divisions", "program_categories", "item_categories", "programs", "program_items", "sessions", "login_attempts", "audit_log", "program_item_history", "notifications"
 foreach ($t in $tables) {
   $r = Call "GET" "/rest/v1/$t`?select=*&limit=1"
   $leak = ($r.Status -eq 200 -and $r.Body.Trim() -ne "[]")
@@ -65,7 +65,7 @@ $r = Call "POST" "/rest/v1/rpc/rpc_list_divisions" '{}'
 Check ($r.Status -eq 200 -and $r.Body -notmatch 'pin_hash') "rpc_list_divisions tanpa pin_hash" "(HTTP $($r.Status))"
 
 # Fungsi internal tidak bisa dipanggil
-foreach ($fn in "_program_json", "_require_session", "_overview", "_random_digits", "_audit") {
+foreach ($fn in "_program_json", "_require_session", "_overview", "_random_digits", "_audit", "_parse_item", "_item_snapshot", "_item_history", "_notify", "_renumber_items") {
   $r = Call "POST" "/rest/v1/rpc/$fn" '{}'
   Check ($r.Status -ge 400) "S-04b fungsi internal $fn tertutup" "(HTTP $($r.Status): $($r.Body))"
 }
@@ -74,6 +74,12 @@ $r = Call "POST" "/rest/v1/rpc/rpc_list_programs" '{"p_token":"","p_division_cod
 Check ($r.Body -match 'AUTH_REQUIRED') "S-05 tanpa token ditolak" "($($r.Body))"
 $r = Call "POST" "/rest/v1/rpc/rpc_f_overview" '{"p_token":"tebakan-acak"}'
 Check ($r.Body -match 'AUTH_EXPIRED') "S-05 token acak ditolak" "($($r.Body))"
+$r = Call "POST" "/rest/v1/rpc/rpc_f_revise_items" '{"p_token":"tebakan-acak","p_program_id":"x","p_expected_updated_at":"x","p_changes":[]}'
+Check ($r.Body -match 'AUTH_EXPIRED') "D-43 revisi Finance dengan token acak ditolak" "($($r.Body))"
+$r = Call "POST" "/rest/v1/rpc/rpc_notifications" '{"p_token":"tebakan-acak"}'
+Check ($r.Body -match 'AUTH_EXPIRED') "D-43 notifikasi dengan token acak ditolak" "($($r.Body))"
+$r = Call "POST" "/rest/v1/rpc/rpc_program_item_history" '{"p_token":"tebakan-acak","p_id":"x"}'
+Check ($r.Body -match 'AUTH_EXPIRED') "D-43 riwayat dengan token acak ditolak" "($($r.Body))"
 # Ruang skema lain tidak terbuka
 $r = Call "GET" "/rest/v1/rpc/rpc_ping"
 Check ($r.Status -ne 500) "GET rpc tidak error server" "(HTTP $($r.Status))"

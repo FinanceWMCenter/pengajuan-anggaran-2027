@@ -269,3 +269,18 @@ Diuji pada salinan data DEV; `05_overview.sql` dijalankan sebagai satu Run, dua 
 511 cek lulus. Regresi: SQL 150, e2e 94/94 (data dummy & salinan DEV), UAT 63/63, animasi 17/17, audit tampilan 4.020 angka selisih 0, reconcile SEMUA COCOK, utils 38/38.
 
 Revisi (kolom pertama Bulan, tanpa Tgl Pengajuan, kelompok + subtotal per divisi): isi setiap baris (bulan, divisi, nama, kategori, PIC, nilai; untuk kebutuhan juga uraian, satuan, harga, catatan) dicocokkan dengan database; setiap subtotal = jumlah barisnya = database; jumlah subtotal = TOTAL; urutan divisi = tabel Per divisi. 3.018 cek lulus (1.750 nilai). Regresi diulang: SQL 150, e2e 94/94 (data dummy & salinan DEV), UAT 63/63, animasi 17/17, audit tampilan 4.020 angka selisih 0, utils 38/38, reconcile SEMUA COCOK (4 kali: setelah e2e dummy, e2e DEV, UAT, dan pada data salinan DEV).
+
+## 19. Revisi Finance per item, riwayat, notifikasi (D-43), 2026-11-11
+
+Diuji pada database bersih dan salinan data DEV. Pembaruan DEV disimulasikan: 01, 03, 04, 05 masing-masing dijalankan dua kali berturut-turut.
+
+| Uji | Hasil |
+|---|---|
+| Pembaruan database tidak mengubah data: jumlah program/item, total, dan sidik isi item & program sebelum = sesudah | 172 program, 437 item, identik |
+| SQL: identitas item tetap, riwayat hanya sejak Diajukan, ubah/tambah/hapus tercatat, urutan dan simpan tanpa perubahan tidak tercatat, id asing/dobel jadi item baru | Lulus |
+| SQL: penolakan revisi (sesi divisi, token acak, tanpa/kurang alasan, konflik versi, item asing/dobel, tidak berubah, qty 0, hapus semua item, draft); satu item salah = seluruh revisi batal | Lulus |
+| SQL: total, status, tanggal pengajuan, Log Riwayat, penanda daftar, akses riwayat & notifikasi hanya pemilik, riwayat tetap ada setelah program dihapus, tabel & pembantu tertutup | Lulus |
+| Klik sungguhan: Finance merevisi (validasi di layar, klik dobel = sekali simpan, peringatan keluar halaman, batalkan), angka halaman = database = perubahan Overview, teks HTML aman | Lulus |
+| Klik sungguhan: divisi menerima notifikasi, melihat penanda & riwayat, mengedit lagi item yang sama (riwayat menyambung), duplikat baris, form lama tidak menimpa revisi; Finance menerima notifikasi; layar HP | Lulus |
+
+SQL 227, klik revisi 83/83, e2e 94/94 (data dummy & salinan DEV), UAT 63/63, animasi 17/17, audit tampilan 4.020 angka selisih 0, utils 38/38, pop-up 3.018 cek, reconcile SEMUA COCOK (5 kali). Satu kali uji pop-up berhenti karena kesalahan otomasi browser ("detached Frame"); diulang 4 kali, semuanya lulus penuh.

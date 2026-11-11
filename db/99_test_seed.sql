@@ -22,6 +22,8 @@ end;
 $$;
 
 delete from public.programs where created_by_name = 'Data Demo';
+delete from public.program_item_history;
+delete from public.notifications;
 
 with
 -- Program khusus per divisi.

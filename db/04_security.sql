@@ -50,6 +50,10 @@ grant execute on function public.rpc_f_set_master_pin(text, text, text)       to
 grant execute on function public.rpc_f_upsert_category(text, text, int, text, boolean) to anon;
 grant execute on function public.rpc_f_audit_log(text, jsonb)                 to anon;
 grant execute on function public.rpc_f_export(text, jsonb)                    to anon;
+grant execute on function public.rpc_f_revise_items(text, text, text, jsonb)  to anon;  -- D-43
+grant execute on function public.rpc_program_item_history(text, text)         to anon;
+grant execute on function public.rpc_notifications(text)                      to anon;
+grant execute on function public.rpc_notifications_read(text, bigint)         to anon;
 -- Fungsi overview dibuat di 05_overview.sql (dan diberi izin di sana). Bila file ini dijalankan ULANG
 -- setelah 05, izinnya ikut tercabut oleh langkah 2 -> pasang lagi di sini supaya Overview tetap jalan.
 do $$

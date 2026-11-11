@@ -460,6 +460,220 @@ select test.ok((timestamptz '2027-01-14 17:30:00+00' at time zone 'Asia/Jakarta'
 -- Login gagal tetap tercatat (T-05)
 select test.ok(exists (select 1 from login_attempts where scope = 'hr-pd' and not succeeded), 'T-05 percobaan PIN salah tercatat');
 
+-- =====================================================================
+-- D-43: revisi Finance per item, riwayat per item, notifikasi
+-- =====================================================================
+reset role;
+select set_config('test.tok_eb2', rpc_login_pin('100002', null) ->> 'token', false);
+select set_config('test.tok_pd2', rpc_login_pin('654321', null) ->> 'token', false);  -- PIN hr-pd diganti tes F-22
+select set_config('test.tok_fin2', rpc_login_pin('999999', null) ->> 'token', false);
+select test.ok(length(current_setting('test.tok_pd2')) = 64 and length(current_setting('test.tok_fin2')) = 64 and length(current_setting('test.tok_eb2')) = 64, 'D-43 login uji');
+
+create function test.it(p_uraian text, p_qty numeric, p_harga bigint, p_id text default null)
+returns jsonb language sql as $$
+  select jsonb_build_object('id', p_id, 'uraian', p_uraian, 'item_category_id', 2, 'qty', p_qty, 'satuan', 'pcs', 'harga_satuan', p_harga, 'catatan', '')
+$$;
+create function test.prog(p_id uuid, p_items jsonb, p_expected text, p_submit boolean default false, p_nama text default 'Uji Riwayat Item')
+returns jsonb language sql as $$
+  select jsonb_build_object('id', p_id, 'expected_updated_at', p_expected, 'nama_program', p_nama, 'program_category_id', 1,
+                            'periode_bulan', 5, 'pic_nama', 'Budi', 'submit', p_submit, 'items', p_items)
+$$;
+create function test.hist(p_program uuid, p_type text default null, p_role text default null)
+returns int language sql as $$
+  select count(*)::int from program_item_history h
+  where h.program_id = p_program and (p_type is null or h.change_type = p_type) and (p_role is null or h.actor_role = p_role)
+$$;
+create function test.notif(p_program uuid, p_role text)
+returns int language sql as $$
+  select count(*)::int from notifications n where n.program_id = p_program and n.recipient_role = p_role
+$$;
+
+do $$
+declare
+  pd   text := current_setting('test.tok_pd2');
+  fin  text := current_setting('test.tok_fin2');
+  eb   text := current_setting('test.tok_eb2');
+  v    jsonb;
+  v2   jsonb;
+  pid  uuid;
+  a    text; b text; c text; d text;
+  tgl  text;
+  ch   jsonb;
+  n    int;
+  nid  bigint;
+  h1   jsonb;
+begin
+  -- Draft: tidak dicatat
+  v := rpc_save_program(pd, test.prog(null, jsonb_build_array(test.it('Item Satu', 2, 1000), test.it('Item Dua', 3, 2000), test.it('Item Tiga', 1, 5000)), null));
+  pid := (v ->> 'id')::uuid;
+  a := v -> 'items' -> 0 ->> 'id'; b := v -> 'items' -> 1 ->> 'id'; c := v -> 'items' -> 2 ->> 'id';
+  perform test.ok(test.hist(pid) = 0, 'D-43 draft baru tidak masuk riwayat');
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 9, 1000, a), test.it('Item Dua', 3, 2000, b), test.it('Item Tiga', 1, 5000, c)), v ->> 'updated_at'));
+  perform test.ok(test.hist(pid) = 0, 'D-43 edit draft tidak masuk riwayat');
+  perform test.ok(v -> 'items' -> 0 ->> 'id' = a and v -> 'items' -> 2 ->> 'id' = c, 'D-43 simpan: identitas item tetap');
+  perform test.ok((v ->> 'total')::numeric = 9000 + 6000 + 5000, 'D-43 simpan: total tetap benar');
+
+  -- Submit: titik awal, belum ada riwayat/notifikasi
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1000, a), test.it('Item Dua', 3, 2000, b), test.it('Item Tiga', 1, 5000, c)), v ->> 'updated_at', true));
+  tgl := v ->> 'tanggal_pengajuan';
+  perform test.ok(test.hist(pid) = 0 and test.notif(pid, 'finance') = 0, 'D-43 submit pertama tanpa riwayat & notifikasi');
+
+  -- Divisi mengubah satu item: hanya item itu yang tercatat, tanpa alasan
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1500, a), test.it('Item Dua', 3, 2000, b), test.it('Item Tiga', 1, 5000, c)), v ->> 'updated_at'));
+  perform test.ok(test.hist(pid) = 1 and test.hist(pid, 'ubah', 'division') = 1, 'D-43 divisi ubah 1 item = 1 riwayat');
+  select to_jsonb(h) into h1 from program_item_history h where h.program_id = pid;
+  perform test.ok(h1 ->> 'item_id' = a and (h1 -> 'old_data' ->> 'harga_satuan')::int = 1000 and (h1 -> 'new_data' ->> 'harga_satuan')::int = 1500, 'D-43 riwayat menyimpan nilai lama dan baru');
+  perform test.ok((h1 -> 'old_data' ->> 'subtotal')::int = 2000 and (h1 -> 'new_data' ->> 'subtotal')::int = 3000, 'D-43 riwayat menyimpan subtotal lama dan baru');
+  perform test.ok(h1 ->> 'reason' is null, 'D-43 divisi tidak wajib alasan');
+  perform test.ok(test.notif(pid, 'finance') = 1 and test.notif(pid, 'division') = 0, 'D-43 Finance mendapat notifikasi, divisi tidak');
+  perform test.ok((select item_count from notifications where program_id = pid) = 1, 'D-43 notifikasi menyebut 1 item');
+
+  -- Simpan tanpa perubahan / hanya pindah urutan: tidak dicatat
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1500, a), test.it('Item Dua', 3, 2000, b), test.it('Item Tiga', 1, 5000, c)), v ->> 'updated_at'));
+  perform test.ok(test.hist(pid) = 1 and test.notif(pid, 'finance') = 1, 'D-43 simpan tanpa perubahan tidak dicatat');
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Dua', 3, 2000, b), test.it('Item Satu', 2, 1500, a), test.it('Item Tiga', 1, 5000, c)), v ->> 'updated_at'));
+  perform test.ok(test.hist(pid) = 1, 'D-43 pindah urutan tidak dicatat');
+  perform test.ok(v -> 'items' -> 0 ->> 'id' = b, 'D-43 urutan baru tersimpan');
+
+  -- Info program saja: notifikasi tanpa riwayat item
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1500, a), test.it('Item Dua', 3, 2000, b), test.it('Item Tiga', 1, 5000, c)), v ->> 'updated_at', false, 'Uji Riwayat Item Baru'));
+  perform test.ok(test.hist(pid) = 1 and test.notif(pid, 'finance') = 2, 'D-43 ubah info program: notifikasi tanpa riwayat item');
+  perform test.ok((select info_changed and item_count = 0 from notifications where program_id = pid order by id desc limit 1), 'D-43 notifikasi menandai info program berubah');
+
+  -- Hapus + tambah oleh divisi
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1500, a), test.it('Item Dua', 3, 2000, b), test.it('Item Baru', 4, 100)), v ->> 'updated_at', false, 'Uji Riwayat Item Baru'));
+  perform test.ok(test.hist(pid, 'hapus', 'division') = 1 and test.hist(pid, 'tambah', 'division') = 1, 'D-43 divisi hapus & tambah tercatat');
+  perform test.ok((select old_data ->> 'uraian' from program_item_history where program_id = pid and change_type = 'hapus') = 'Item Tiga', 'D-43 isi item terhapus tetap tersimpan');
+  c := v -> 'items' -> 2 ->> 'id';
+  perform test.ok(exists (select 1 from program_item_history where program_id = pid and change_type = 'tambah' and item_id::text = c), 'D-43 riwayat tambah menunjuk item yang benar');
+
+  -- Id asing dan id dobel diperlakukan sebagai item baru; item program lain tidak tersentuh
+  v2 := rpc_save_program(pd, test.prog(null, jsonb_build_array(test.it('Program Lain', 1, 100)), null, false, 'Uji Riwayat Lain'));
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1500, a), test.it('Item Dua', 3, 2000, b), test.it('Item Baru', 4, 100, c),
+         test.it('Id Asing', 1, 10, v2 -> 'items' -> 0 ->> 'id'), test.it('Id Dobel', 1, 20, a)), v ->> 'updated_at', false, 'Uji Riwayat Item Baru'));
+  perform test.ok(jsonb_array_length(v -> 'items') = 5, 'D-43 id asing/dobel menjadi item baru');
+  perform test.ok((select uraian from program_items where id = (v2 -> 'items' -> 0 ->> 'id')::uuid) = 'Program Lain', 'D-43 item program lain tidak tersentuh');
+  perform test.ok((select count(distinct id) from program_items where program_id = pid) = 5, 'D-43 id item tetap unik');
+  perform rpc_delete_program(pd, v2 ->> 'id', null);
+  perform test.ok(not exists (select 1 from notifications where program_name = 'Uji Riwayat Lain'), 'D-43 hapus draft oleh divisi tanpa notifikasi');
+
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1500, a), test.it('Item Dua', 3, 2000, b), test.it('Item Baru', 4, 100, c)), v ->> 'updated_at', false, 'Uji Riwayat Item Baru'));
+
+  -- Penolakan revisi Finance
+  ch := jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', a, 'reason', 'Harga disesuaikan kontrak', 'item', test.it('Item Satu', 4, 1500)));
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', pd, pid, v ->> 'updated_at', ch), 'FORBIDDEN', 'D-43 sesi divisi tidak bisa merevisi');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', 'tebakan', pid, v ->> 'updated_at', ch), 'AUTH_EXPIRED', 'D-43 token acak ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, '2020-01-01T00:00:00Z', ch), 'CONFLICT', 'D-43 versi lama ditolak (konflik)');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, gen_random_uuid(), v ->> 'updated_at', ch), 'NOT_FOUND', 'D-43 program tidak ada');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at', '[]'), 'VALIDATION:changes', 'D-43 tanpa perubahan ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', a, 'item', test.it('Item Satu', 4, 1500)))), 'VALIDATION:changes.1.reason', 'D-43 tanpa alasan ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', a, 'reason', '   pendek  ', 'item', test.it('Item Satu', 4, 1500)))), 'VALIDATION:changes.1.reason', 'D-43 alasan < 10 karakter ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', a, 'reason', repeat('x', 501), 'item', test.it('Item Satu', 4, 1500)))), 'VALIDATION:changes.1.reason', 'D-43 alasan > 500 karakter ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', gen_random_uuid(), 'reason', 'Alasan yang cukup panjang', 'item', test.it('Item Satu', 4, 1500)))), 'VALIDATION:changes.1.id', 'D-43 item bukan milik program ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', a, 'reason', 'Alasan yang cukup panjang', 'item', test.it('Item Satu', 2, 1500)))), 'VALIDATION:changes.1.item', 'D-43 item tidak berubah ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', a, 'reason', 'Alasan yang cukup panjang', 'item', test.it('Item Satu', 0, 1500)))), 'VALIDATION:changes.1.qty', 'D-43 qty 0 ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'hapus', 'id', a, 'reason', 'Alasan yang cukup panjang'), jsonb_build_object('op', 'ubah', 'id', a, 'reason', 'Alasan yang cukup panjang', 'item', test.it('Item Satu', 4, 1500)))), 'VALIDATION:changes.2.id', 'D-43 item sama dua kali ditolak');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'hapus', 'id', a, 'reason', 'Alasan yang cukup panjang'), jsonb_build_object('op', 'hapus', 'id', b, 'reason', 'Alasan yang cukup panjang'), jsonb_build_object('op', 'hapus', 'id', c, 'reason', 'Alasan yang cukup panjang'))), 'VALIDATION:changes', 'D-43 tidak boleh menghapus semua item');
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ganti', 'id', a, 'reason', 'Alasan yang cukup panjang'))), 'VALIDATION:changes.1.op', 'D-43 jenis perubahan tidak dikenal ditolak');
+
+  -- Semua atau tidak sama sekali
+  n := test.hist(pid);
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, pid, v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'ubah', 'id', a, 'reason', 'Alasan yang cukup panjang', 'item', test.it('Item Satu', 4, 1500)),
+                      jsonb_build_object('op', 'tambah', 'reason', 'Alasan yang cukup panjang', 'item', test.it('Xy', 1, 100)))), 'VALIDATION:changes.2.uraian', 'D-43 satu item salah = seluruh revisi ditolak');
+  perform test.ok((select qty from program_items where id = a::uuid) = 2 and test.hist(pid) = n, 'D-43 revisi gagal tidak mengubah apa pun');
+
+  -- Revisi berhasil: ubah + hapus + tambah sekaligus
+  ch := jsonb_build_array(
+    jsonb_build_object('op', 'ubah', 'id', a, 'reason', 'Qty disesuaikan kebutuhan', 'item', test.it('Item Satu', 4, 1500)),
+    jsonb_build_object('op', 'tambah', 'reason', 'Tambahan dari hasil review', 'item', test.it('Item Finance', 5, 300)),
+    jsonb_build_object('op', 'hapus', 'id', b, 'reason', 'Tidak masuk prioritas 2027'));
+  v2 := rpc_f_revise_items(fin, pid::text, v ->> 'updated_at', ch);
+  perform test.ok((v2 ->> 'total')::numeric = 6000 + 400 + 1500, 'D-43 total setelah revisi benar');
+  perform test.ok((v2 ->> 'total')::numeric = (select sum(subtotal) from program_items where program_id = pid), 'D-43 total = jumlah item di database');
+  perform test.ok(v2 ->> 'status' = 'diajukan' and v2 ->> 'tanggal_pengajuan' = tgl, 'D-43 status & tanggal pengajuan tidak berubah');
+  perform test.ok((v2 ->> 'updated_at') <> (v ->> 'updated_at'), 'D-43 versi program berganti');
+  perform test.ok(v2 ->> 'updated_by_name' = 'Finance', 'D-43 terakhir diubah oleh Finance');
+  perform test.ok((select array_agg(urutan order by urutan) from program_items where program_id = pid) = array[1,2,3]::smallint[], 'D-43 urutan item rapat');
+  perform test.ok(test.hist(pid, 'ubah', 'finance') = 1 and test.hist(pid, 'tambah', 'finance') = 1 and test.hist(pid, 'hapus', 'finance') = 1, 'D-43 tiap perubahan Finance tercatat');
+  perform test.ok((select reason from program_item_history where program_id = pid and actor_role = 'finance' and change_type = 'hapus') = 'Tidak masuk prioritas 2027', 'D-43 alasan tersimpan per item');
+  perform test.ok(exists (select 1 from audit_log where action = 'revise' and entity_id = pid::text and actor_role = 'finance' and actor_name is null), 'D-43 Log Riwayat mencatat revisi sebagai Finance');
+  perform test.ok((select item_count from notifications where program_id = pid and recipient_role = 'division' and kind = 'revisi_finance') = 3, 'D-43 divisi mendapat notifikasi 3 item');
+  perform test.ok((select (p ->> 'revised_by_finance')::boolean from jsonb_array_elements(rpc_list_programs(pd, null) -> 'programs') p where p ->> 'id' = pid::text), 'D-43 penanda di daftar program divisi');
+  perform test.ok((select (p ->> 'revised_by_finance')::boolean from jsonb_array_elements(rpc_f_list_programs(fin)) p where p ->> 'id' = pid::text), 'D-43 penanda di daftar program Finance');
+
+  -- Versi lama setelah revisi: divisi yang formnya masih terbuka tidak bisa menimpa
+  perform test.expect_error(format('select rpc_save_program(%L, %L)', pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 2, 1500, a)), v ->> 'updated_at', false, 'Uji Riwayat Item Baru')), 'CONFLICT', 'D-43 revisi Finance tidak tertimpa form lama');
+
+  -- Divisi mengubah lagi item yang sudah direvisi Finance: riwayatnya menyambung
+  c := (select id::text from program_items where program_id = pid and urutan = 2);
+  d := (select id::text from program_items where program_id = pid and urutan = 3);
+  v := rpc_save_program(pd, test.prog(pid, jsonb_build_array(test.it('Item Satu', 4, 1750, a), test.it('Item Baru', 4, 100, c), test.it('Item Finance', 5, 300, d)), v2 ->> 'updated_at', false, 'Uji Riwayat Item Baru'));
+  perform test.ok((select count(*) from program_item_history where program_id = pid and item_id = a::uuid) = 3, 'D-43 riwayat item menyambung (divisi, Finance, divisi)');
+  h1 := rpc_program_item_history(pd, pid::text);
+  perform test.ok(h1 -> 0 ->> 'actor_role' = 'division' and h1 -> 0 ->> 'item_id' = a, 'D-43 riwayat terbaru lebih dulu');
+  perform test.ok((select count(*) from jsonb_array_elements(h1) x where x ->> 'actor_label' = 'Finance') = 3, 'D-43 pelaku tertulis Finance');
+  perform test.ok((select bool_and(x ->> 'actor_label' = (select name from divisions where code = 'hr-pd')) from jsonb_array_elements(h1) x where x ->> 'actor_role' = 'division'), 'D-43 pelaku divisi tertulis nama divisi');
+  perform test.ok(jsonb_array_length(rpc_program_item_history(fin, pid::text)) = jsonb_array_length(h1), 'D-43 Finance melihat riwayat yang sama');
+  perform test.expect_error(format('select rpc_program_item_history(%L, %L)', eb, pid), 'NOT_FOUND', 'D-43 divisi lain tidak bisa melihat riwayat');
+  perform test.expect_error(format('select rpc_program_item_history(%L, %L)', 'tebakan', pid), 'AUTH_EXPIRED', 'D-43 riwayat dengan token acak ditolak');
+
+  -- Notifikasi hanya untuk pemiliknya
+  perform test.ok(not exists (select 1 from jsonb_array_elements(rpc_notifications(eb) -> 'items') x where x ->> 'program_id' = pid::text), 'D-43 divisi lain tidak melihat notifikasi');
+  perform test.ok(exists (select 1 from jsonb_array_elements(rpc_notifications(pd) -> 'items') x where x ->> 'program_id' = pid::text and x ->> 'kind' = 'revisi_finance'), 'D-43 divisi pemilik melihat notifikasi');
+  perform test.ok(exists (select 1 from jsonb_array_elements(rpc_notifications(fin) -> 'items') x where x ->> 'program_id' = pid::text and x ->> 'kind' = 'ubah_divisi'), 'D-43 Finance melihat notifikasi');
+  perform test.ok(not exists (select 1 from jsonb_array_elements(rpc_notifications(fin) -> 'items') x where x ->> 'kind' = 'revisi_finance'), 'D-43 Finance tidak menerima notifikasi revisinya sendiri');
+  select id into nid from notifications where program_id = pid and recipient_role = 'division' limit 1;
+  perform rpc_notifications_read(eb, nid);
+  perform test.ok((select read_at is null from notifications where id = nid), 'D-43 divisi lain tidak bisa menandai dibaca');
+  n := (rpc_notifications(pd) ->> 'unread')::int;
+  perform rpc_notifications_read(pd, nid);
+  perform test.ok((rpc_notifications(pd) ->> 'unread')::int = n - 1, 'D-43 tandai dibaca mengurangi angka');
+  perform test.expect_error(format('select rpc_notifications(%L)', 'tebakan'), 'AUTH_EXPIRED', 'D-43 notifikasi dengan token acak ditolak');
+  perform rpc_notifications_read(fin, null);
+  perform test.ok((rpc_notifications(fin) ->> 'unread')::int = 0, 'D-43 tandai semua dibaca');
+  perform test.ok((rpc_notifications(pd) ->> 'unread')::int = n - 1, 'D-43 tandai semua Finance tidak menyentuh akun divisi');
+
+  -- Program dihapus Finance: divisi diberi tahu, riwayat tetap tersimpan
+  n := test.hist(pid);
+  perform rpc_delete_program(fin, pid::text, 'Program dibatalkan manajemen');
+  perform test.ok(exists (select 1 from notifications where program_id = pid and recipient_role = 'division' and kind = 'hapus_program'), 'D-43 divisi diberi tahu saat Finance menghapus program');
+  perform test.ok(test.hist(pid) = n and n > 0, 'D-43 riwayat tetap tersimpan setelah program dihapus');
+  perform test.expect_error(format('select rpc_program_item_history(%L, %L)', fin, pid), 'NOT_FOUND', 'D-43 riwayat program terhapus tidak bisa dibuka');
+
+  -- Program Diajukan dihapus divisi: Finance diberi tahu. Draft tidak bisa direvisi Finance.
+  v := rpc_save_program(pd, test.prog(null, jsonb_build_array(test.it('Item Satu', 1, 100)), null, true, 'Uji Riwayat Hapus'));
+  perform rpc_delete_program(pd, v ->> 'id', null);
+  perform test.ok(exists (select 1 from notifications where program_name = 'Uji Riwayat Hapus' and recipient_role = 'finance' and kind = 'hapus_program'), 'D-43 Finance diberi tahu saat divisi menghapus program Diajukan');
+  v := rpc_save_program(pd, test.prog(null, jsonb_build_array(test.it('Item Satu', 1, 100)), null, false, 'Uji Riwayat Draft'));
+  perform test.expect_error(format('select rpc_f_revise_items(%L, %L, %L, %L)', fin, v ->> 'id', v ->> 'updated_at',
+    jsonb_build_array(jsonb_build_object('op', 'hapus', 'id', v -> 'items' -> 0 ->> 'id', 'reason', 'Alasan yang cukup panjang'))), 'VALIDATION:program', 'D-43 draft tidak bisa direvisi Finance');
+  perform rpc_delete_program(pd, v ->> 'id', null);
+
+  delete from notifications where program_name like 'Uji Riwayat%';
+  delete from program_item_history where program_id = pid;
+end $$;
+
+select test.ok(not has_function_privilege('anon', 'public._parse_item(jsonb, text, boolean, smallint[])', 'execute')
+           and not has_function_privilege('anon', 'public._item_snapshot(uuid)', 'execute')
+           and not has_function_privilege('anon', 'public._item_history(uuid, uuid, smallint, text, text, jsonb, jsonb, text)', 'execute')
+           and not has_function_privilege('anon', 'public._notify(text, smallint, smallint, uuid, text, text, integer, boolean)', 'execute')
+           and not has_function_privilege('anon', 'public._renumber_items(uuid)', 'execute'), 'D-43 pembantu internal tertutup');
+select test.ok(not has_table_privilege('anon', 'public.program_item_history', 'select')
+           and not has_table_privilege('anon', 'public.program_item_history', 'insert')
+           and not has_table_privilege('anon', 'public.notifications', 'select')
+           and not has_table_privilege('anon', 'public.notifications', 'update'), 'D-43 tabel riwayat & notifikasi tertutup');
+select test.ok((select bool_and(relrowsecurity) from pg_class where oid in ('public.program_item_history'::regclass, 'public.notifications'::regclass)), 'D-43 RLS aktif di tabel baru');
+
 -- Bersihkan alat uji dan kembalikan PIN seperti sebelum tes
 update divisions d set pin_hash = b.pin_hash, pin_updated_at = b.pin_updated_at from _pin_backup b where b.id = d.id;
 delete from app_settings where key = 'finance_pin_hash' and not exists (select 1 from _master_backup);

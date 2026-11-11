@@ -8,6 +8,11 @@ export function statusBadge(status) {
     : h('span', { class: 'wm-badge' }, 'Draft');
 }
 
+/** Penanda item/program yang pernah direvisi Finance (D-43). */
+export function revisedBadge() {
+  return h('span', { class: 'wm-badge is-warning' }, 'Direvisi Finance');
+}
+
 export function activeBadge(isActive) {
   return isActive
     ? h('span', { class: 'wm-badge is-good' }, 'Aktif')
@@ -98,7 +103,7 @@ export function siteFooter(c, cls = 'site-footer') {
     h('a', { href: c.wa_link, target: '_blank', rel: 'noopener noreferrer', class: 'nowrap' }, `WhatsApp ${c.wa}`));
 }
 
-/** Tabel sederhana dalam kartu. columns: [{label, cls?, render(row)->Node|string}]. customRow(row) -> sel <td> untuk baris khusus (subtotal), atau null. */
+/** Tabel sederhana dalam kartu. columns: [{label, cls?, render(row)->Node|string}]. customRow(row) -> sel <td> (atau {cells, props}) untuk baris khusus, atau null. */
 export function dataTable({ columns, rows, footer = null, empty = 'Belum ada data.', rowClass = null, caption = null, onRowClick = null, rowClickable = null, customRow = null }) {
   const thead = h('thead', null, h('tr', null, columns.map((c) => h('th', { scope: 'col', class: c.thCls || null }, c.label))));
   const rowProps = (r, i) => {
@@ -109,9 +114,8 @@ export function dataTable({ columns, rows, footer = null, empty = 'Belum ada dat
   const tbody = h('tbody', null, rows.length
     ? rows.map((r, i) => {
       const special = customRow ? customRow(r, i) : null;
-      return special
-        ? h('tr', { class: 'is-subtotal' }, special)
-        : h('tr', rowProps(r, i), columns.map((c) => h('td', { class: c.cls || null }, c.render(r, i))));
+      if (special) return Array.isArray(special) ? h('tr', { class: 'is-subtotal' }, special) : h('tr', special.props, special.cells);
+      return h('tr', rowProps(r, i), columns.map((c) => h('td', { class: c.cls || null }, c.render(r, i))));
     })
     : h('tr', null, h('td', { colspan: columns.length, class: 'table-empty' }, empty)));
   const tfoot = footer ? h('tfoot', null, h('tr', null, footer)) : null;

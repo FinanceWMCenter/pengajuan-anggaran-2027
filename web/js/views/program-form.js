@@ -24,8 +24,9 @@ function emptyItem() {
   return { key: newKey(), uraian: '', item_category_id: null, qty: '', satuan: '', harga_satuan: null, catatan: '' };
 }
 
-function fromServerItem(it) {
+export function fromServerItem(it) {
   return {
+    id: it.id ?? null,   // identitas item di database, supaya riwayatnya menyambung (D-43)
     key: newKey(),
     uraian: it.uraian || '',
     item_category_id: it.item_category_id ?? null,
@@ -64,7 +65,7 @@ function validateHeader(hd, allowedProgramCats) {
   return e;
 }
 
-function validateItem(it, full, allowedItemCats) {
+export function validateItem(it, full, allowedItemCats) {
   const e = {};
   const uraian = String(it.uraian || '').trim();
   const satuan = String(it.satuan || '').trim();
@@ -147,7 +148,7 @@ export async function programFormView(main, ctx) {
     busy: false,
   };
   if (isDuplicate) {
-    state.items = state.items.map((it) => ({ ...it, item_category_id: allowedItemCats.has(Number(it.item_category_id)) ? it.item_category_id : null }));
+    state.items = state.items.map((it) => ({ ...it, id: null, item_category_id: allowedItemCats.has(Number(it.item_category_id)) ? it.item_category_id : null }));
   }
   const submitted = state.status === 'diajukan';
 
@@ -555,7 +556,7 @@ export async function programFormView(main, ctx) {
   function duplicateRow(key) {
     if (state.items.length >= LIMITS.maxRows) { toast(`Maksimal ${LIMITS.maxRows} baris per program.`, 'warning'); return; }
     const idx = state.items.findIndex((x) => x.key === key);
-    const copy = { ...state.items[idx], key: newKey() };
+    const copy = { ...state.items[idx], id: null, key: newKey() };
     state.items.splice(idx + 1, 0, copy);
     markDirty();
     drawRows();
@@ -708,6 +709,7 @@ export async function programFormView(main, ctx) {
       items: sent.map((it) => {
         const q = parseQty(it.qty);
         return {
+          id: it.id || null,
           uraian: String(it.uraian || '').trim(),
           item_category_id: it.item_category_id ? Number(it.item_category_id) : null,
           qty: q === null || Number.isNaN(q) ? null : q,

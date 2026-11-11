@@ -8,6 +8,7 @@ import { renderShell, renderPublic } from './ui/shell.js';
 import { errorBlock, flash } from './ui/components.js';
 import { toast } from './ui/toast.js';
 import { confirmDialog } from './ui/dialog.js';
+import { notificationBell } from './ui/notifications.js';
 import { h } from './utils.js';
 
 import { loginView, homePathFor } from './views/login.js';
@@ -125,7 +126,7 @@ async function render() {
       ctx.readOnly = s.role === 'finance';
       if (route.writable && ctx.readOnly) {
         const main = divisionShell(ctx, route);
-        main.append(flash('info', 'Finance hanya dapat melihat dan menghapus program divisi (tidak menambah atau mengubah).'));
+        main.append(flash('info', 'Finance tidak mengubah program lewat form divisi. Untuk merevisi item, buka detail program.'));
         return;
       }
       await route.view(divisionShell(ctx, route), ctx);
@@ -172,6 +173,7 @@ function divisionShell(ctx, route) {
     },
     onLogout: () => logout(),
     contacts: ctx.contacts,
+    headerExtra: notificationBell(s),
   });
 }
 
@@ -194,6 +196,7 @@ function financeShell(ctx, route) {
     user: { name: s.actor_name || 'Finance', role: 'Finance' },
     onLogout: () => logout(),
     contacts: ctx.contacts,
+    headerExtra: notificationBell(s),
   });
 }
 

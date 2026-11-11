@@ -13,9 +13,10 @@ import { siteFooter } from './components.js';
  * @param {{name:string, role:string}} o.user
  * @param {Function} o.onLogout
  * @param {object} o.contacts
+ * @param {HTMLElement} [o.headerExtra] elemen tambahan di kanan header (lonceng notifikasi)
  * @returns {HTMLElement} elemen <main> untuk diisi halaman
  */
-export function renderShell(root, { nav, active, pageTitle, context, user, onLogout, contacts, logoutLabel = 'Keluar' }) {
+export function renderShell(root, { nav, active, pageTitle, context, user, onLogout, contacts, logoutLabel = 'Keluar', headerExtra = null }) {
   const sidebar = h('aside', { class: 'wm-sidebar', id: 'sidebar', 'aria-label': 'Menu utama' });
   const backdrop = h('div', { class: 'wm-sidebar-backdrop', hidden: true });
 
@@ -67,7 +68,7 @@ export function renderShell(root, { nav, active, pageTitle, context, user, onLog
       toggleBtn,
       h('a', { href: '#/', class: 'only-sm' }, h('img', { src: 'assets/logo-navy.png', alt: 'WM Center', class: 'header-logo-sm logo-auto' })),
       h('div', { class: 'crumbs only-md' }, 'Anggaran 2027', icon('chevron-right', 'ic-sm'), h('b', null, pageTitle))),
-    h('div', { class: 'menu-wrap' }, userBtn, menuPanel));
+    h('div', { class: 'header-right' }, headerExtra, h('div', { class: 'menu-wrap' }, userBtn, menuPanel)));
 
   const main = h('main', { class: 'wm-main stack', id: 'main', tabindex: '-1' });
   const watermark = h('div', { class: 'wm-watermark', 'aria-hidden': 'true' }, h('img', { src: 'assets/logo-navy.png', alt: '', class: 'logo-auto' }));

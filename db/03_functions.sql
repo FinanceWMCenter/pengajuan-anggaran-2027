@@ -271,6 +271,128 @@ as $$
   values (p_role, p_division_id, p_actor_name, p_action, p_entity_type, p_entity_id, p_old, p_new, p_reason);
 $$;
 
+-- Isi satu item pada saat ini, untuk riwayat (D-43). Nama kategori ikut disimpan supaya riwayat tetap terbaca.
+create or replace function public._item_snapshot(p_item_id uuid)
+returns jsonb
+language sql
+stable
+set search_path = public, extensions
+as $$
+  select jsonb_build_object(
+    'uraian', i.uraian,
+    'item_category_id', i.item_category_id,
+    'item_category_name', ic.name,
+    'qty', i.qty,
+    'satuan', i.satuan,
+    'harga_satuan', i.harga_satuan,
+    'subtotal', i.subtotal,
+    'catatan', i.catatan)
+  from public.program_items i
+  left join public.item_categories ic on ic.id = i.item_category_id
+  where i.id = p_item_id;
+$$;
+
+create or replace function public._item_history(
+  p_program_id uuid, p_item_id uuid, p_division_id smallint, p_role text, p_type text,
+  p_old jsonb, p_new jsonb, p_reason text
+)
+returns void
+language sql
+set search_path = public, extensions
+as $$
+  insert into public.program_item_history (program_id, item_id, division_id, actor_role, change_type, old_data, new_data, reason)
+  values (p_program_id, p_item_id, p_division_id, p_role, p_type, p_old, p_new, p_reason);
+$$;
+
+create or replace function public._notify(
+  p_recipient_role text, p_recipient_division smallint, p_division_id smallint, p_program_id uuid,
+  p_program_name text, p_kind text, p_item_count int, p_info_changed boolean
+)
+returns void
+language sql
+set search_path = public, extensions
+as $$
+  insert into public.notifications (recipient_role, recipient_division_id, division_id, program_id, program_name, kind, item_count, info_changed)
+  values (p_recipient_role, p_recipient_division, p_division_id, p_program_id, p_program_name, p_kind, p_item_count, p_info_changed);
+$$;
+
+-- Validasi satu item (satu sumber aturan untuk simpan divisi dan revisi Finance).
+-- Hasil: jsonb isi item, atau null bila barisnya kosong total.
+-- p_full = aturan lengkap (Submit / program Diajukan); p_allowed_cats = kategori nonaktif yang masih boleh dipakai.
+create or replace function public._parse_item(p_item jsonb, p_f text, p_full boolean, p_allowed_cats smallint[])
+returns jsonb
+language plpgsql
+set search_path = public, extensions
+as $$
+declare
+  r_uraian  text;
+  r_cat     int;
+  r_qty     numeric;
+  r_satuan  text;
+  r_harga   numeric;
+  r_catatan text;
+begin
+  if jsonb_typeof(p_item) is distinct from 'object' then
+    perform public._fail('VALIDATION:' || p_f || 'uraian:Data baris tidak valid');
+  end if;
+
+  r_uraian  := nullif(btrim(coalesce(p_item ->> 'uraian', '')), '');
+  r_cat     := public._parse_int(p_item ->> 'item_category_id', p_f || 'item_category_id');
+  r_qty     := public._parse_num(p_item ->> 'qty', p_f || 'qty');
+  r_satuan  := nullif(btrim(coalesce(p_item ->> 'satuan', '')), '');
+  r_harga   := public._parse_num(p_item ->> 'harga_satuan', p_f || 'harga_satuan');
+  r_catatan := nullif(btrim(coalesce(p_item ->> 'catatan', '')), '');
+
+  -- Baris kosong total dilewati
+  if r_uraian is null and r_cat is null and r_qty is null and r_satuan is null and r_harga is null and r_catatan is null then
+    return null;
+  end if;
+
+  -- Aturan yang berlaku juga untuk draft
+  if r_uraian is not null and char_length(r_uraian) > 200 then
+    perform public._fail('VALIDATION:' || p_f || 'uraian:Uraian maksimal 200 karakter');
+  end if;
+  if r_cat is not null and not exists (
+       select 1 from public.item_categories where id = r_cat and (is_active or r_cat = any (p_allowed_cats))) then
+    perform public._fail('VALIDATION:' || p_f || 'item_category_id:Kategori tidak tersedia');
+  end if;
+  if r_qty is not null and (r_qty <= 0 or r_qty > 100000 or r_qty <> round(r_qty, 2)) then
+    perform public._fail('VALIDATION:' || p_f || 'qty:Qty harus lebih dari 0, maksimal 100.000, maksimal 2 angka desimal');
+  end if;
+  if r_harga is not null and (r_harga < 0 or r_harga > 1000000000000 or r_harga <> trunc(r_harga)) then
+    perform public._fail('VALIDATION:' || p_f || 'harga_satuan:Harga satuan Rp0 sampai Rp1.000.000.000.000, tanpa desimal');
+  end if;
+  if r_satuan is not null and char_length(r_satuan) > 30 then
+    perform public._fail('VALIDATION:' || p_f || 'satuan:Satuan maksimal 30 karakter');
+  end if;
+  if r_catatan is not null and char_length(r_catatan) > 300 then
+    perform public._fail('VALIDATION:' || p_f || 'catatan:Catatan maksimal 300 karakter');
+  end if;
+
+  -- Aturan penuh untuk Submit / program Diajukan (BR-04, BR-05)
+  if p_full then
+    if r_uraian is null or char_length(r_uraian) < 3 then
+      perform public._fail('VALIDATION:' || p_f || 'uraian:Uraian wajib 3-200 karakter');
+    end if;
+    if r_cat is null then
+      perform public._fail('VALIDATION:' || p_f || 'item_category_id:Pilih kategori untuk baris ini');
+    end if;
+    if r_qty is null then
+      perform public._fail('VALIDATION:' || p_f || 'qty:Qty wajib diisi');
+    end if;
+    if r_satuan is null then
+      perform public._fail('VALIDATION:' || p_f || 'satuan:Satuan wajib diisi');
+    end if;
+    if r_harga is null then
+      perform public._fail('VALIDATION:' || p_f || 'harga_satuan:Harga satuan wajib diisi');
+    end if;
+  end if;
+
+  return jsonb_build_object('uraian', r_uraian, 'item_category_id', r_cat, 'qty', r_qty,
+                            'satuan', r_satuan, 'harga_satuan', r_harga, 'catatan', r_catatan);
+end;
+$$;
+
 -- Satu program lengkap (header + baris + total) sebagai JSON
 create or replace function public._program_json(p_id uuid)
 returns jsonb
@@ -579,7 +701,8 @@ begin
                  'program_category_id', program_category_id, 'program_category_name', program_category_name,
                  'periode_bulan', periode_bulan, 'pic_nama', pic_nama, 'status', status,
                  'tanggal_pengajuan', tanggal_pengajuan, 'updated_at', updated_at,
-                 'total', total, 'item_count', item_count
+                 'total', total, 'item_count', item_count,
+                 'revised_by_finance', exists (select 1 from public.program_item_history h where h.program_id = prog.id and h.actor_role = 'finance')
                ) order by periode_bulan, lower(nama_program))
         from prog), '[]'::jsonb)
     )
@@ -669,18 +792,21 @@ declare
   v_pic      text;
   v_items    jsonb;
   v_item     jsonb;
+  v_row      jsonb;
   v_rows     jsonb := '[]'::jsonb;
   v_old_cats smallint[] := '{}';
+  v_old_ids  uuid[] := '{}';
+  v_kept     uuid[] := '{}';
+  v_item_id  uuid;
+  v_before   jsonb;
+  v_after    jsonb;
+  v_track    boolean := false;   -- riwayat & notifikasi hanya untuk program yang sudah Diajukan (D-43)
+  v_changes  int := 0;
+  v_info     boolean := false;
   v_n        int := 0;
   v_f        text;
   v_action   text;
   v_total    numeric;
-  r_uraian   text;
-  r_cat      int;
-  r_qty      numeric;
-  r_satuan   text;
-  r_harga    numeric;
-  r_catatan  text;
 begin
   if s.role <> 'division' then
     perform public._fail('FORBIDDEN');            -- Finance tidak menambah/mengedit program (D-32)
@@ -707,8 +833,10 @@ begin
     end if;
     v_has_old := true;
     v_old := public._program_json(v_id);
-    select coalesce(array_agg(distinct item_category_id) filter (where item_category_id is not null), '{}')
-      into v_old_cats from public.program_items where program_id = v_id;
+    select coalesce(array_agg(distinct item_category_id) filter (where item_category_id is not null), '{}'),
+           coalesce(array_agg(id), '{}')
+      into v_old_cats, v_old_ids from public.program_items where program_id = v_id;
+    v_track := v_existing.status = 'diajukan';
   end if;
 
   -- Program yang sudah Diajukan tetap Diajukan dan selalu divalidasi penuh (D-30)
@@ -749,66 +877,21 @@ begin
   for i in 0 .. jsonb_array_length(v_items) - 1 loop
     v_item := v_items -> i;
     v_f := 'items.' || (i + 1) || '.';
-    if jsonb_typeof(v_item) <> 'object' then
-      perform public._fail('VALIDATION:' || v_f || 'uraian:Data baris tidak valid');
-    end if;
-
-    r_uraian  := nullif(btrim(coalesce(v_item ->> 'uraian', '')), '');
-    r_cat     := public._parse_int(v_item ->> 'item_category_id', v_f || 'item_category_id');
-    r_qty     := public._parse_num(v_item ->> 'qty', v_f || 'qty');
-    r_satuan  := nullif(btrim(coalesce(v_item ->> 'satuan', '')), '');
-    r_harga   := public._parse_num(v_item ->> 'harga_satuan', v_f || 'harga_satuan');
-    r_catatan := nullif(btrim(coalesce(v_item ->> 'catatan', '')), '');
-
-    -- Baris kosong total dilewati
-    if r_uraian is null and r_cat is null and r_qty is null and r_satuan is null and r_harga is null and r_catatan is null then
-      continue;
+    v_row := public._parse_item(v_item, v_f, v_full, v_old_cats);
+    if v_row is null then
+      continue;   -- baris kosong total dilewati
     end if;
     v_n := v_n + 1;
 
-    -- Aturan yang berlaku juga untuk draft
-    if r_uraian is not null and char_length(r_uraian) > 200 then
-      perform public._fail('VALIDATION:' || v_f || 'uraian:Uraian maksimal 200 karakter');
-    end if;
-    if r_cat is not null and not exists (
-         select 1 from public.item_categories where id = r_cat and (is_active or r_cat = any (v_old_cats))) then
-      perform public._fail('VALIDATION:' || v_f || 'item_category_id:Kategori tidak tersedia');
-    end if;
-    if r_qty is not null and (r_qty <= 0 or r_qty > 100000 or r_qty <> round(r_qty, 2)) then
-      perform public._fail('VALIDATION:' || v_f || 'qty:Qty harus lebih dari 0, maksimal 100.000, maksimal 2 angka desimal');
-    end if;
-    if r_harga is not null and (r_harga < 0 or r_harga > 1000000000000 or r_harga <> trunc(r_harga)) then
-      perform public._fail('VALIDATION:' || v_f || 'harga_satuan:Harga satuan Rp0 sampai Rp1.000.000.000.000, tanpa desimal');
-    end if;
-    if r_satuan is not null and char_length(r_satuan) > 30 then
-      perform public._fail('VALIDATION:' || v_f || 'satuan:Satuan maksimal 30 karakter');
-    end if;
-    if r_catatan is not null and char_length(r_catatan) > 300 then
-      perform public._fail('VALIDATION:' || v_f || 'catatan:Catatan maksimal 300 karakter');
+    -- Item lama dikenali dari id-nya; id yang bukan milik program ini / dipakai dua kali = item baru
+    v_item_id := public._to_uuid(v_item ->> 'id');
+    if v_item_id = any (v_old_ids) and not (v_item_id = any (v_kept)) then
+      v_kept := v_kept || v_item_id;
+    else
+      v_item_id := null;
     end if;
 
-    -- Aturan penuh untuk Submit / program Diajukan (BR-04, BR-05)
-    if v_full then
-      if r_uraian is null or char_length(r_uraian) < 3 then
-        perform public._fail('VALIDATION:' || v_f || 'uraian:Uraian wajib 3-200 karakter');
-      end if;
-      if r_cat is null then
-        perform public._fail('VALIDATION:' || v_f || 'item_category_id:Pilih kategori untuk baris ini');
-      end if;
-      if r_qty is null then
-        perform public._fail('VALIDATION:' || v_f || 'qty:Qty wajib diisi');
-      end if;
-      if r_satuan is null then
-        perform public._fail('VALIDATION:' || v_f || 'satuan:Satuan wajib diisi');
-      end if;
-      if r_harga is null then
-        perform public._fail('VALIDATION:' || v_f || 'harga_satuan:Harga satuan wajib diisi');
-      end if;
-    end if;
-
-    v_rows := v_rows || jsonb_build_array(jsonb_build_object(
-      'urutan', v_n, 'uraian', r_uraian, 'item_category_id', r_cat, 'qty', r_qty,
-      'satuan', r_satuan, 'harga_satuan', r_harga, 'catatan', r_catatan));
+    v_rows := v_rows || jsonb_build_array(v_row || jsonb_build_object('urutan', v_n, 'id', v_item_id));
   end loop;
 
   if v_full and v_n = 0 then
@@ -839,18 +922,44 @@ begin
      where id = v_id;
   end if;
 
-  -- Ganti semua baris (atomik dalam transaksi yang sama)
-  delete from public.program_items where program_id = v_id;
-  insert into public.program_items (program_id, urutan, uraian, item_category_id, qty, satuan, harga_satuan, catatan)
-  select v_id,
-         (r ->> 'urutan')::smallint,
-         r ->> 'uraian',
-         (r ->> 'item_category_id')::smallint,
-         (r ->> 'qty')::numeric,
-         r ->> 'satuan',
-         (r ->> 'harga_satuan')::bigint,
-         r ->> 'catatan'
-  from jsonb_array_elements(v_rows) r;
+  -- Tulis baris (atomik dalam transaksi yang sama). Item lama diperbarui di tempat supaya identitas dan riwayatnya tetap (D-43).
+  if v_track then
+    for v_item_id in select id from public.program_items where program_id = v_id and not (id = any (v_kept)) loop
+      perform public._item_history(v_id, v_item_id, v_div, 'division', 'hapus', public._item_snapshot(v_item_id), null, null);
+      v_changes := v_changes + 1;
+    end loop;
+  end if;
+  delete from public.program_items where program_id = v_id and not (id = any (v_kept));
+
+  for v_row in select r from jsonb_array_elements(v_rows) r loop
+    v_item_id := (v_row ->> 'id')::uuid;
+    if v_item_id is null then
+      insert into public.program_items (program_id, urutan, uraian, item_category_id, qty, satuan, harga_satuan, catatan)
+      values (v_id, (v_row ->> 'urutan')::smallint, v_row ->> 'uraian', (v_row ->> 'item_category_id')::smallint,
+              (v_row ->> 'qty')::numeric, v_row ->> 'satuan', (v_row ->> 'harga_satuan')::bigint, v_row ->> 'catatan')
+      returning id into v_item_id;
+      if v_track then
+        perform public._item_history(v_id, v_item_id, v_div, 'division', 'tambah', null, public._item_snapshot(v_item_id), null);
+        v_changes := v_changes + 1;
+      end if;
+    else
+      v_before := public._item_snapshot(v_item_id);
+      update public.program_items
+         set urutan           = (v_row ->> 'urutan')::smallint,
+             uraian           = v_row ->> 'uraian',
+             item_category_id = (v_row ->> 'item_category_id')::smallint,
+             qty              = (v_row ->> 'qty')::numeric,
+             satuan           = v_row ->> 'satuan',
+             harga_satuan     = (v_row ->> 'harga_satuan')::bigint,
+             catatan          = v_row ->> 'catatan'
+       where id = v_item_id;
+      v_after := public._item_snapshot(v_item_id);
+      if v_track and v_before is distinct from v_after then
+        perform public._item_history(v_id, v_item_id, v_div, 'division', 'ubah', v_before, v_after, null);
+        v_changes := v_changes + 1;
+      end if;
+    end if;
+  end loop;
 
   select coalesce(sum(subtotal), 0) into v_total from public.program_items where program_id = v_id;
   if v_total > 1000000000000000 then
@@ -865,6 +974,17 @@ begin
                 else 'update'
               end;
   perform public._audit('division', v_div, s.actor_name, v_action, 'program', v_id::text, v_old, v_new, null);
+
+  -- Finance diberi tahu bila divisi mengubah program yang sudah Diajukan (D-43)
+  if v_track then
+    v_info := v_nama is distinct from v_existing.nama_program
+              or v_cat is distinct from v_existing.program_category_id::int
+              or v_bulan is distinct from v_existing.periode_bulan::int
+              or v_pic is distinct from v_existing.pic_nama;
+    if v_changes > 0 or v_info then
+      perform public._notify('finance', null, v_div, v_id, v_nama, 'ubah_divisi', v_changes, v_info);
+    end if;
+  end if;
 
   return v_new;
 end;
@@ -883,8 +1003,10 @@ declare
   v_div    smallint;
   v_reason text := nullif(btrim(coalesce(p_reason, '')), '');
   v_old    jsonb;
+  v_status text;
+  v_name   text;
 begin
-  select division_id into v_div from public.programs where id = v_id for update;
+  select division_id, status, nama_program into v_div, v_status, v_name from public.programs where id = v_id for update;
   if not found or (s.role = 'division' and v_div <> s.division_id) then
     perform public._fail('NOT_FOUND');
   end if;
@@ -900,6 +1022,100 @@ begin
   perform public._audit(s.role, v_div, s.actor_name, 'delete', 'program', v_id::text, v_old, null, v_reason);
   delete from public.programs where id = v_id;   -- baris kebutuhan ikut terhapus (cascade)
 
+  -- Divisi tahu bila Finance menghapus programnya; Finance tahu bila divisi menghapus program Diajukan (D-43)
+  if s.role = 'finance' then
+    perform public._notify('division', v_div, v_div, v_id, v_name, 'hapus_program', 0, false);
+  elsif v_status = 'diajukan' then
+    perform public._notify('finance', null, v_div, v_id, v_name, 'hapus_program', 0, false);
+  end if;
+
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- Riwayat per item satu program (D-43): divisi hanya miliknya, finance semua. Terbaru lebih dulu.
+create or replace function public.rpc_program_item_history(p_token text, p_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s     public.sessions := public._require_session(p_token);
+  v_id  uuid := public._to_uuid(p_id);
+  v_div smallint;
+begin
+  select division_id into v_div from public.programs where id = v_id;
+  if not found or (s.role = 'division' and v_div <> s.division_id) then
+    perform public._fail('NOT_FOUND');
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', x.id, 'occurred_at', x.occurred_at, 'item_id', x.item_id,
+             'actor_role', x.actor_role, 'actor_label', x.actor_label,
+             'change_type', x.change_type, 'old_data', x.old_data, 'new_data', x.new_data, 'reason', x.reason
+           ) order by x.occurred_at desc, x.id desc)
+    from (
+      select h.*, case h.actor_role when 'finance' then 'Finance' else d.name end as actor_label
+      from public.program_item_history h
+      join public.divisions d on d.id = h.division_id
+      where h.program_id = v_id
+    ) x
+  ), '[]'::jsonb);
+end;
+$$;
+
+-- Notifikasi akun yang sedang masuk (D-43): divisi hanya miliknya; Finance milik Finance
+create or replace function public.rpc_notifications(p_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s public.sessions := public._require_session(p_token);
+begin
+  return jsonb_build_object(
+    'unread', (select count(*) from public.notifications n
+               where n.read_at is null and n.recipient_role = s.role
+                 and (s.role = 'finance' or n.recipient_division_id = s.division_id)),
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', x.id, 'created_at', x.created_at, 'kind', x.kind,
+               'program_id', x.program_id, 'program_name', x.program_name,
+               'division_code', x.code, 'division_name', x.dname,
+               'item_count', x.item_count, 'info_changed', x.info_changed, 'read_at', x.read_at
+             ) order by x.created_at desc, x.id desc)
+      from (
+        select n.*, d.code, d.name as dname
+        from public.notifications n
+        join public.divisions d on d.id = n.division_id
+        where n.recipient_role = s.role
+          and (s.role = 'finance' or n.recipient_division_id = s.division_id)
+        order by n.created_at desc, n.id desc
+        limit 30
+      ) x
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- Tandai sudah dibaca: satu notifikasi (p_id) atau semua (p_id null). Hanya milik akun sendiri.
+create or replace function public.rpc_notifications_read(p_token text, p_id bigint default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s public.sessions := public._require_session(p_token);
+begin
+  update public.notifications n
+     set read_at = clock_timestamp()
+   where n.read_at is null
+     and n.recipient_role = s.role
+     and (s.role = 'finance' or n.recipient_division_id = s.division_id)
+     and (p_id is null or n.id = p_id);
   return jsonb_build_object('ok', true);
 end;
 $$;
@@ -907,6 +1123,171 @@ $$;
 -- ---------------------------------------------------------------------
 -- RPC khusus Finance
 -- ---------------------------------------------------------------------
+
+-- Urutan item dirapatkan kembali menjadi 1..n
+create or replace function public._renumber_items(p_program_id uuid)
+returns void
+language sql
+set search_path = public, extensions
+as $$
+  update public.program_items i
+     set urutan = x.rn
+    from (select id, row_number() over (order by urutan, id) as rn
+          from public.program_items where program_id = p_program_id) x
+   where x.id = i.id and i.urutan <> x.rn;
+$$;
+
+-- Revisi item oleh Finance pada program Diajukan (D-43). Semua perubahan tersimpan sekaligus, atau tidak sama sekali.
+-- p_changes: [{op:'ubah', id, reason, item:{...}} | {op:'tambah', reason, item:{...}} | {op:'hapus', id, reason}]
+create or replace function public.rpc_f_revise_items(p_token text, p_program_id text, p_expected_updated_at text, p_changes jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s         public.sessions := public._require_session(p_token, 'finance');
+  v_id      uuid := public._to_uuid(p_program_id);
+  v_prog    public.programs;
+  v_old     jsonb;
+  v_new     jsonb;
+  v_change  jsonb;
+  v_ord     bigint;
+  v_f       text;
+  v_op      text;
+  v_reason  text;
+  v_item_id uuid;
+  v_seen    uuid[] := '{}';
+  v_cats    smallint[];
+  v_row     jsonb;
+  v_before  jsonb;
+  v_after   jsonb;
+  v_uraian  text;
+  v_notes   text[] := '{}';
+  v_count   int;
+  v_total   numeric;
+begin
+  select * into v_prog from public.programs where id = v_id for update;
+  if not found then
+    perform public._fail('NOT_FOUND');
+  end if;
+  if v_prog.status <> 'diajukan' then
+    perform public._fail('VALIDATION:program:Hanya program berstatus Diajukan yang bisa direvisi Finance');
+  end if;
+  if public._to_ts(p_expected_updated_at) is distinct from v_prog.updated_at then
+    perform public._fail('CONFLICT');
+  end if;
+  if p_changes is null or jsonb_typeof(p_changes) <> 'array' or jsonb_array_length(p_changes) = 0 then
+    perform public._fail('VALIDATION:changes:Belum ada item yang direvisi');
+  end if;
+  if jsonb_array_length(p_changes) > 200 then
+    perform public._fail('VALIDATION:changes:Maksimal 200 perubahan sekali submit');
+  end if;
+
+  v_old := public._program_json(v_id);
+
+  -- Hapus dulu, lalu ubah, lalu tambah, supaya batas 200 baris dihitung dari kondisi akhir
+  for v_change, v_ord in
+    select c, o from jsonb_array_elements(p_changes) with ordinality t(c, o)
+    order by case c ->> 'op' when 'hapus' then 1 when 'ubah' then 2 else 3 end, o
+  loop
+    v_f := 'changes.' || v_ord || '.';
+    v_op := v_change ->> 'op';
+    if v_op is null or v_op not in ('ubah', 'tambah', 'hapus') then
+      perform public._fail('VALIDATION:' || v_f || 'op:Jenis perubahan tidak valid');
+    end if;
+
+    v_reason := btrim(coalesce(v_change ->> 'reason', ''));
+    if char_length(v_reason) < 10 then
+      perform public._fail('VALIDATION:' || v_f || 'reason:Alasan wajib diisi minimal 10 karakter');
+    end if;
+    if char_length(v_reason) > 500 then
+      perform public._fail('VALIDATION:' || v_f || 'reason:Alasan maksimal 500 karakter');
+    end if;
+
+    v_item_id := null;
+    if v_op in ('ubah', 'hapus') then
+      v_item_id := public._to_uuid(v_change ->> 'id');
+      if v_item_id is null or not exists (select 1 from public.program_items i where i.id = v_item_id and i.program_id = v_id) then
+        perform public._fail('VALIDATION:' || v_f || 'id:Item tidak ditemukan pada program ini');
+      end if;
+      if v_item_id = any (v_seen) then
+        perform public._fail('VALIDATION:' || v_f || 'id:Item yang sama direvisi dua kali');
+      end if;
+      v_seen := v_seen || v_item_id;
+    end if;
+
+    if v_op = 'hapus' then
+      v_before := public._item_snapshot(v_item_id);
+      delete from public.program_items where id = v_item_id;
+      perform public._item_history(v_id, v_item_id, v_prog.division_id, 'finance', 'hapus', v_before, null, v_reason);
+      v_uraian := v_before ->> 'uraian';
+
+    elsif v_op = 'ubah' then
+      select coalesce(array_agg(item_category_id) filter (where item_category_id is not null), '{}')
+        into v_cats from public.program_items where id = v_item_id;
+      v_row := public._parse_item(v_change -> 'item', v_f, true, v_cats);
+      if v_row is null then
+        perform public._fail('VALIDATION:' || v_f || 'uraian:Isi item wajib dilengkapi');
+      end if;
+      v_before := public._item_snapshot(v_item_id);
+      update public.program_items
+         set uraian           = v_row ->> 'uraian',
+             item_category_id = (v_row ->> 'item_category_id')::smallint,
+             qty              = (v_row ->> 'qty')::numeric,
+             satuan           = v_row ->> 'satuan',
+             harga_satuan     = (v_row ->> 'harga_satuan')::bigint,
+             catatan          = v_row ->> 'catatan'
+       where id = v_item_id;
+      v_after := public._item_snapshot(v_item_id);
+      if v_before = v_after then
+        perform public._fail('VALIDATION:' || v_f || 'item:Item ini belum diubah');
+      end if;
+      perform public._item_history(v_id, v_item_id, v_prog.division_id, 'finance', 'ubah', v_before, v_after, v_reason);
+      v_uraian := v_after ->> 'uraian';
+
+    else
+      v_row := public._parse_item(v_change -> 'item', v_f, true, '{}');
+      if v_row is null then
+        perform public._fail('VALIDATION:' || v_f || 'uraian:Isi item wajib dilengkapi');
+      end if;
+      perform public._renumber_items(v_id);
+      select count(*) into v_count from public.program_items where program_id = v_id;
+      if v_count >= 200 then
+        perform public._fail('VALIDATION:changes:Maksimal 200 baris per program');
+      end if;
+      insert into public.program_items (program_id, urutan, uraian, item_category_id, qty, satuan, harga_satuan, catatan)
+      values (v_id, v_count + 1, v_row ->> 'uraian', (v_row ->> 'item_category_id')::smallint,
+              (v_row ->> 'qty')::numeric, v_row ->> 'satuan', (v_row ->> 'harga_satuan')::bigint, v_row ->> 'catatan')
+      returning id into v_item_id;
+      v_after := public._item_snapshot(v_item_id);
+      perform public._item_history(v_id, v_item_id, v_prog.division_id, 'finance', 'tambah', null, v_after, v_reason);
+      v_uraian := v_after ->> 'uraian';
+    end if;
+
+    v_notes := v_notes || (v_uraian || ': ' || v_reason);
+  end loop;
+
+  perform public._renumber_items(v_id);
+
+  select count(*), coalesce(sum(subtotal), 0) into v_count, v_total from public.program_items where program_id = v_id;
+  if v_count = 0 then
+    perform public._fail('VALIDATION:changes:Program harus punya minimal satu item. Hapus programnya bila memang dibatalkan');
+  end if;
+  if v_total > 1000000000000000 then
+    perform public._fail('VALIDATION:changes:Total program terlalu besar (maksimal Rp1.000 triliun)');
+  end if;
+
+  update public.programs set updated_at = clock_timestamp(), updated_by_name = 'Finance' where id = v_id;
+
+  v_new := public._program_json(v_id);
+  perform public._audit('finance', v_prog.division_id, null, 'revise', 'program', v_id::text, v_old, v_new, array_to_string(v_notes, ' | '));
+  perform public._notify('division', v_prog.division_id, v_prog.division_id, v_id, v_prog.nama_program, 'revisi_finance', jsonb_array_length(p_changes), false);
+
+  return v_new;
+end;
+$$;
+
 
 create or replace function public.rpc_f_list_programs(p_token text)
 returns jsonb
@@ -928,7 +1309,8 @@ begin
                'periode_bulan', p.periode_bulan, 'pic_nama', p.pic_nama, 'status', p.status,
                'tanggal_pengajuan', p.tanggal_pengajuan, 'updated_at', p.updated_at,
                'total', coalesce((select sum(i.subtotal) from public.program_items i where i.program_id = p.id), 0),
-               'item_count', (select count(*) from public.program_items i where i.program_id = p.id)
+               'item_count', (select count(*) from public.program_items i where i.program_id = p.id),
+               'revised_by_finance', exists (select 1 from public.program_item_history h where h.program_id = p.id and h.actor_role = 'finance')
              ) as x,
              lpad(d.sort_order::text, 3, '0') || lpad(p.periode_bulan::text, 2, '0') || lower(p.nama_program) as sort_key
       from public.programs p

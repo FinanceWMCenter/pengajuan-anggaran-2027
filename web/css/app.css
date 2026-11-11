@@ -506,6 +506,47 @@ body.has-modal { overflow: hidden; }
 .drill .wm-table tfoot td { position: sticky; bottom: 0; z-index: 1; }
 .drill .wm-table tr.is-subtotal td { font-weight: 600; background: color-mix(in srgb, var(--accent) 60%, transparent); border-bottom: 2px solid var(--border); }
 .drill .wm-table tr.is-subtotal td.cell-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Revisi Finance, riwayat per item, notifikasi (D-43) */
+.item-marks { margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.history-toggle { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.history-toggle[aria-expanded="true"] { font-weight: 600; }
+.wm-table tr.is-history td { background: var(--accent); padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.history-list { list-style: none; margin: 0; padding: 0; font-size: 0.8125rem; }
+.history-list > li + li { margin-top: 0.625rem; padding-top: 0.625rem; border-top: 1px solid var(--border); }
+.history-meta { margin-bottom: 0.25rem; }
+.history-change, .history-reason { overflow-wrap: anywhere; }
+.history-reason { margin-top: 0.25rem; }
+.wm-table tr.is-rev-ubah td, .wm-table tr.is-rev-tambah td { background: color-mix(in srgb, var(--brand-orange) 9%, transparent); }
+.wm-table tr.is-rev-hapus td { background: color-mix(in srgb, var(--critical) 8%, transparent); }
+.wm-table tr.is-rev-hapus td:not(.cell-actions) { text-decoration: line-through; }
+.wm-table tr.is-rev-hapus .wm-badge { text-decoration: none; }
+.revise-bar { position: sticky; bottom: 0.75rem; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-md, 0.5rem); background: var(--card); box-shadow: 0 6px 20px rgb(0 0 0 / 0.12); }
+.revise-subtotal { margin: 0; text-align: right; }
+.removed-items summary { cursor: pointer; font-weight: 600; }
+.removed-item { margin-top: 0.875rem; padding-top: 0.875rem; border-top: 1px solid var(--border); }
+.removed-item > b { display: block; margin-bottom: 0.375rem; overflow-wrap: anywhere; }
+.header-right { display: flex; align-items: center; gap: 0.5rem; }
+.bell-wrap { position: relative; }
+.bell-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border: 0; border-radius: 9999px; background: transparent; color: var(--foreground); cursor: pointer; }
+.bell-btn:hover { background: var(--accent); }
+.bell-count { position: absolute; top: -0.125rem; right: -0.125rem; min-width: 1.125rem; padding: 0 0.25rem; border-radius: 9999px; background: var(--brand-orange); color: var(--brand-orange-foreground); font-size: 0.6875rem; font-weight: 700; line-height: 1.125rem; text-align: center; }
+.bell-count[hidden] { display: none; }
+.bell-panel { position: absolute; top: calc(100% + 0.375rem); right: 0; z-index: 40; width: min(24rem, calc(100vw - 2rem)); border: 1px solid var(--border); border-radius: var(--radius-md, 0.5rem); background: var(--card); box-shadow: 0 10px 28px rgb(0 0 0 / 0.16); }
+.bell-panel[hidden] { display: none; }
+@media (max-width: 480px) {
+  .bell-wrap { position: static; }
+  .bell-panel { left: 0.75rem; right: 0.75rem; width: auto; }
+}
+.bell-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--border); }
+.bell-list { max-height: min(60vh, 26rem); overflow-y: auto; }
+.bell-empty { margin: 0; padding: 1rem 0.875rem; font-size: 0.875rem; color: var(--muted-foreground); }
+.bell-item { display: block; width: 100%; padding: 0.625rem 0.875rem; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.bell-item:last-child { border-bottom: 0; }
+.bell-item:hover { background: var(--accent); }
+.bell-item.is-unread { background: color-mix(in srgb, var(--brand-orange) 10%, transparent); }
+.bell-msg { display: block; font-size: 0.875rem; overflow-wrap: anywhere; }
+.bell-item.is-unread .bell-msg { font-weight: 600; }
+.bell-time { display: block; margin-top: 0.125rem; font-size: 0.75rem; color: var(--muted-foreground); }
 .drill-foot { margin: 0; font-size: 0.875rem; color: var(--muted-foreground); }
 
 /* ---------- Animasi selamat datang setelah PIN benar (D-41, web/js/ui/welcome.js) ---------- */

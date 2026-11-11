@@ -5,7 +5,7 @@ import { rpc, errorMessage } from '../api.js';
 import { getMaster } from '../store.js';
 import { refresh } from '../router.js';
 import {
-  pageHead, brandPanel, statCard, statusBadge, emptyState, dataTable, errorBlock, skeletonStats,
+  pageHead, brandPanel, statCard, statusBadge, revisedBadge, emptyState, dataTable, errorBlock, skeletonStats,
 } from '../ui/components.js';
 import { deleteProgram } from './program-actions.js';
 
@@ -91,7 +91,7 @@ export async function divisionSummaryView(main, ctx) {
       { label: 'Bulan', render: (p) => monthName(p.periode_bulan) },
       { label: 'PIC', cls: 'cell-start', render: (p) => p.pic_nama },
       { label: 'Total (Rp)', cls: 'cell-num', render: (p) => formatRupiah(p.total) },
-      { label: 'Status', render: (p) => statusBadge(p.status) },
+      { label: 'Status', render: (p) => [statusBadge(p.status), p.revised_by_finance ? h('div', { class: 'item-marks' }, revisedBadge()) : null] },
       { label: 'Tgl Pengajuan', cls: 'nowrap', render: (p) => formatDate(p.tanggal_pengajuan) },
       {
         label: 'Aksi', cls: 'cell-actions', render: (p) => [

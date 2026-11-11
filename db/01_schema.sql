@@ -131,8 +131,45 @@ create table if not exists public.audit_log (
 );
 
 -- ---------------------------------------------------------------------
+-- Riwayat perubahan per item (D-43). Hanya ditambah, tidak pernah diubah.
+-- Sengaja tanpa foreign key ke program/item: riwayat tetap ada walau itemnya dihapus.
+-- ---------------------------------------------------------------------
+create table if not exists public.program_item_history (
+  id          bigint generated always as identity primary key,
+  occurred_at timestamptz not null default clock_timestamp(),
+  program_id  uuid not null,
+  item_id     uuid not null,
+  division_id smallint not null references public.divisions(id),
+  actor_role  text not null check (actor_role in ('division', 'finance')),
+  change_type text not null check (change_type in ('tambah', 'ubah', 'hapus')),
+  old_data    jsonb,
+  new_data    jsonb,
+  reason      text check (reason is null or char_length(reason) <= 500)
+);
+
+-- ---------------------------------------------------------------------
+-- Notifikasi per akun (D-43): divisi tahu revisi Finance, Finance tahu perubahan divisi
+-- ---------------------------------------------------------------------
+create table if not exists public.notifications (
+  id                    bigint generated always as identity primary key,
+  created_at            timestamptz not null default clock_timestamp(),
+  recipient_role        text not null check (recipient_role in ('division', 'finance')),
+  recipient_division_id smallint references public.divisions(id),
+  division_id           smallint not null references public.divisions(id),  -- divisi pemilik program
+  program_id            uuid,
+  program_name          text not null,
+  kind                  text not null check (kind in ('revisi_finance', 'ubah_divisi', 'hapus_program')),
+  item_count            int not null default 0,
+  info_changed          boolean not null default false,
+  read_at               timestamptz,
+  constraint notifications_recipient_ck check ((recipient_role = 'division') = (recipient_division_id is not null))
+);
+
+-- ---------------------------------------------------------------------
 -- Indeks
 -- ---------------------------------------------------------------------
+create index if not exists item_history_program_idx     on public.program_item_history (program_id, occurred_at desc);
+create index if not exists notifications_recipient_idx  on public.notifications (recipient_role, recipient_division_id, created_at desc);
 create index if not exists programs_division_bulan_idx on public.programs (division_id, periode_bulan);
 create index if not exists programs_status_idx         on public.programs (status);
 create index if not exists programs_nama_trgm_idx      on public.programs using gin (lower(nama_program) extensions.gin_trgm_ops);

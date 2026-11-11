@@ -7,7 +7,7 @@ import { pageHead, dataTable, errorBlock, loadingBlock } from '../ui/components.
 import { openDialog } from '../ui/dialog.js';
 
 const ACTIONS = {
-  create: 'Buat draft', update: 'Ubah', submit: 'Submit', delete: 'Hapus', pin_reset: 'Atur/reset PIN',
+  create: 'Buat draft', update: 'Ubah', submit: 'Submit', revise: 'Revisi Finance', delete: 'Hapus', pin_reset: 'Atur/reset PIN',
   master_pin_change: 'Ganti PIN Finance', category_change: 'Ubah kategori', export: 'Export',
 };
 const ROLES = { division: 'Divisi', finance: 'Finance', system: 'Sistem' };
@@ -44,7 +44,7 @@ export async function financeLogView(main) {
         { label: 'Waktu (WIB)', cls: 'nowrap', render: (r) => formatDateTime(r.occurred_at) },
         { label: 'Aktor', cls: 'cell-start', render: (r) => [ROLES[r.actor_role] || r.actor_role, r.actor_name ? h('div', { class: 'xsmall muted' }, r.actor_name) : null] },
         { label: 'Divisi', cls: 'cell-start', render: (r) => r.division_name || '-' },
-        { label: 'Aksi', render: (r) => h('span', { class: `wm-badge${r.action === 'delete' ? ' is-critical' : r.action === 'submit' ? ' is-good' : ''}` }, ACTIONS[r.action] || r.action) },
+        { label: 'Aksi', render: (r) => h('span', { class: `wm-badge${r.action === 'delete' ? ' is-critical' : r.action === 'submit' ? ' is-good' : r.action === 'revise' ? ' is-warning' : ''}` }, ACTIONS[r.action] || r.action) },
         { label: 'Data', cls: 'cell-start', render: (r) => describe(r) },
         { label: 'Alasan', cls: 'cell-start', render: (r) => r.reason || '' },
         { label: 'Detail', render: (r) => h('button', { type: 'button', class: 'wm-btn-text', onclick: () => showDetail(r) }, 'Lihat') },
