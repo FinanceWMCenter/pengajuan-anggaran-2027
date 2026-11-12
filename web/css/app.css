@@ -208,7 +208,17 @@
 .pin-key:disabled { opacity: 0.5; cursor: not-allowed; }
 .pin-key.is-fn { font-size: 0.8125rem; color: var(--muted-foreground); border-color: transparent; background: transparent; }
 .pin-tools { display: flex; justify-content: center; gap: 1rem; margin-top: 0.75rem; font-size: 0.875rem; }
-.pin-help { margin-top: 0.875rem; font-size: 0.75rem; color: var(--muted-foreground); }
+.pin-help { margin-top: 0.875rem; font-size: 0.8125rem; color: var(--muted-foreground); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
+.pin-contact { display: inline-flex; gap: 0.5rem; }
+.contact-btn {
+    width: 2.5rem; height: 2.5rem; border-radius: 9999px; border: 1px solid var(--border); background: var(--background);
+    display: inline-flex; align-items: center; justify-content: center; transition: background-color 0.1s, transform 0.08s;
+}
+.contact-btn .ic { width: 20px; height: 20px; }
+.contact-btn:hover { background: var(--accent); }
+.contact-btn:active { transform: scale(0.94); }
+.contact-btn.is-wa { color: #1da851; }
+.contact-btn.is-mail { color: var(--primary); }
 
 /* ---------- Kerangka aplikasi (tambahan untuk wm-sidebar dll.) ---------- */
 .sidebar-brand { display: block; margin: 0 0 1rem 15px; text-decoration: none; }

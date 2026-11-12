@@ -51,6 +51,7 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | D-44 | (2026-11-11) **Detail Log Riwayat mudah dibaca** (opsi A pilihan Finance): ringkasan waktu, pelaku, divisi, program, total sebelum → sesudah, alasan, info program dan item yang berubah (lama → baru, ditambahkan, dihapus). Data mentah tetap ada di bagian "Data teknis" yang tertutup untuk pemulihan manual. Hanya tampilan; data tidak berubah |
 | D-45 | (2026-11-11) **Overview divisi bisa diklik** seperti Overview Finance (D-42): kartu Total/Jumlah program/Bulan/Kategori/Program terbesar, baris Per bulan, Per kuartal, Per kategori program, Per kategori kebutuhan, Top program membuka pop-up rincian dengan TOTAL. **Hanya data divisi itu sendiri** (fungsi baru `rpc_overview_division_detail`; sesi divisi lain ditolak FORBIDDEN, Finance boleh lihat divisi pilihan). Kolom Divisi tidak ditampilkan; pop-up kuartal dikelompokkan per bulan dengan subtotal. Fungsi rincian Finance memakai pembantu yang sama `_overview_detail` (hasilnya terbukti identik) |
 | D-46 | (2026-11-11) **Halaman login cukup PIN**: kolom "Nama Anda (opsional)" dihapus (menggantikan A-04). Pelaku di log = "Finance" atau nama divisi. Nama yang dulu tersimpan di browser dibersihkan otomatis (pernah ada PIN yang terketik di kolom nama). Fungsi login di database tidak diubah |
+| D-47 | (2026-11-12) **Kartu PIN lebih ringkas**: keterangan "6 digit dari Finance. Divisi Anda terbaca otomatis." dihapus; "Lupa PIN? Hubungi Finance" diikuti logo WhatsApp (wa.me, membuka chat ke nomor Finance) dan logo email (mailto). Hanya tautan biasa, tanpa API dan tanpa data yang dikirim. Footer bawah halaman tetap menampilkan kontak lengkap |
 
 ## A - Asumsi Claude/ penyusun (belum dikonfirmasi; ubah bila salah)
 | ID | Asumsi | Dampak jika salah |
@@ -123,3 +124,4 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | 2026-11-11 | D-43: revisi Finance per item, riwayat per item, notifikasi; D-32 diganti |
 | 2026-11-11 | D-44: detail Log Riwayat mudah dibaca |
 | 2026-11-11 | D-45: pop-up rincian Overview divisi; D-46: login tanpa kolom nama (A-04 dihapus) |
+| 2026-11-12 | D-47: kartu PIN ringkas, kontak Lupa PIN berupa logo |

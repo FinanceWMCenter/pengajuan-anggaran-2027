@@ -7,7 +7,6 @@ import { rpc, errorMessage, MESSAGES } from '../api.js';
 import { getSession, setSession, clearSession, forgetRememberedName } from '../session.js';
 import { getDivisions } from '../store.js';
 import { createPinPad } from '../ui/pin-pad.js';
-import { contactLinks } from '../ui/components.js';
 import { toast } from '../ui/toast.js';
 import { playWelcome } from '../ui/welcome.js';
 import { navigate, onCleanup } from '../router.js';
@@ -88,10 +87,20 @@ export async function loginView(main, ctx) {
       marquee),
     h('section', { class: 'wm-login-card pin-card login-card', 'aria-labelledby': 'login-title' },
       h('h2', { class: 'pin-title', id: 'login-title' }, 'Masukkan PIN'),
-      h('p', { class: 'pin-sub' }, '6 digit dari Finance. Divisi Anda terbaca otomatis.'),
       note,
       pad.el,
-      h('div', { class: 'pin-help' }, h('b', null, 'Lupa PIN? '), 'Hubungi Finance: ', contactLinks(contacts), '.')),
+      // D-47: cukup logo. Hanya tautan biasa (wa.me / mailto) yang membuka aplikasinya; tidak ada data yang dikirim.
+      h('div', { class: 'pin-help' },
+        h('span', null, h('b', null, 'Lupa PIN?'), ' Hubungi Finance'),
+        h('span', { class: 'pin-contact' },
+          h('a', {
+            class: 'contact-btn is-wa', href: contacts.wa_link, target: '_blank', rel: 'noopener noreferrer',
+            'aria-label': `WhatsApp Finance ${contacts.wa}`, title: `WhatsApp ${contacts.wa}`,
+          }, icon('whatsapp')),
+          h('a', {
+            class: 'contact-btn is-mail', href: `mailto:${contacts.email_2}`,
+            'aria-label': `Email Finance ${contacts.email_2}`, title: contacts.email_2,
+          }, icon('mail'))))),
   );
   pad.focus();
 
