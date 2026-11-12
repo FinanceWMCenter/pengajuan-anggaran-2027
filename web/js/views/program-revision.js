@@ -28,7 +28,7 @@ const FIELDS = [
   { key: 'catatan', label: 'Catatan', fmt: text },
 ];
 
-function changeLines(entry) {
+export function changeLines(entry) {
   const o = entry.old_data || {};
   const n = entry.new_data || {};
   return FIELDS
@@ -38,7 +38,7 @@ function changeLines(entry) {
       f.fmt(o[f.show || f.key]), ' → ', h('b', null, f.fmt(n[f.show || f.key]))));
 }
 
-function itemLine(d) {
+export function itemLine(d) {
   return h('div', { class: 'history-change' },
     `${text(d.uraian)} · ${text(d.item_category_name)} · ${num(d.qty)} ${text(d.satuan)} × ${money(d.harga_satuan)} = `,
     h('b', null, money(d.subtotal)));

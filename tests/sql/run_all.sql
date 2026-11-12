@@ -357,6 +357,26 @@ select test.ok(not exists (select 1 from jsonb_array_elements(current_setting('t
 select test.ok(not has_function_privilege('anon', 'public._ov_programs(smallint)', 'execute'), 'D-42 pembantu internal tetap tertutup');
 set role anon;
 select set_config('test.ov_eb', rpc_overview_division(current_setting('test.tok_eb'), 'hr-eb')::text, false);
+
+-- D-45: rincian pop-up Overview divisi = hanya divisi sendiri, angka sama persis dengan Overview divisi
+select set_config('test.ov_eb_det', rpc_overview_division_detail(current_setting('test.tok_eb'), 'hr-eb')::text, false);
+select test.ok((select coalesce(sum((p ->> 'total')::numeric), 0) from jsonb_array_elements(current_setting('test.ov_eb_det')::jsonb -> 'programs') p)
+               = (current_setting('test.ov_eb')::jsonb ->> 'total')::numeric, 'D-45 total program rincian = total Overview divisi');
+select test.ok((select coalesce(sum((i ->> 'subtotal')::numeric), 0) from jsonb_array_elements(current_setting('test.ov_eb_det')::jsonb -> 'items') i)
+               = (current_setting('test.ov_eb')::jsonb ->> 'total')::numeric, 'D-45 subtotal baris rincian = total Overview divisi');
+select test.ok(jsonb_array_length(current_setting('test.ov_eb_det')::jsonb -> 'programs') = (current_setting('test.ov_eb')::jsonb ->> 'program_count')::int, 'D-45 jumlah program rincian = Overview divisi');
+select test.ok(jsonb_array_length(current_setting('test.ov_eb_det')::jsonb -> 'programs') > 0, 'D-45 persiapan: HR-EB punya program Diajukan');
+select test.ok(not exists (select 1 from jsonb_array_elements(current_setting('test.ov_eb_det')::jsonb -> 'programs') p where p ->> 'division_code' <> 'hr-eb'), 'D-45 rincian hanya berisi program divisi sendiri');
+select test.ok((select bool_and((i ->> 'program_id') in (select p ->> 'id' from jsonb_array_elements(current_setting('test.ov_eb_det')::jsonb -> 'programs') p))
+                from jsonb_array_elements(current_setting('test.ov_eb_det')::jsonb -> 'items') i), 'D-45 semua baris kebutuhan milik program divisi sendiri');
+select test.ok(rpc_overview_division_detail(current_setting('test.tok_eb'), null) = current_setting('test.ov_eb_det')::jsonb, 'D-45 tanpa kode = divisi sendiri');
+select test.expect_error(format('select rpc_overview_division_detail(%L, %L)', current_setting('test.tok_eb'), 'hr-pd'), 'FORBIDDEN', 'D-45 sesi divisi tidak bisa membuka rincian divisi lain');
+select test.expect_error($q$select rpc_overview_division_detail('tebakan', 'hr-eb')$q$, 'AUTH_EXPIRED', 'D-45 token acak ditolak');
+select test.ok(rpc_overview_division_detail(current_setting('test.tok_fin'), 'hr-eb') = current_setting('test.ov_eb_det')::jsonb, 'D-45 Finance boleh membuka rincian divisi pilihan (isi sama)');
+select test.expect_error(format('select rpc_overview_division_detail(%L, %L)', current_setting('test.tok_fin'), 'tidak-ada'), 'NOT_FOUND', 'D-45 kode divisi tidak dikenal');
+reset role;
+select test.ok(not has_function_privilege('anon', 'public._overview_detail(smallint)', 'execute'), 'D-45 pembantu _overview_detail tertutup');
+set role anon;
 select set_config('test.export_all', rpc_f_export(current_setting('test.tok_fin'), '{"status":"all"}')::text, false);
 
 reset role;

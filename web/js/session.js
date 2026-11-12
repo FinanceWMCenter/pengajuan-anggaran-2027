@@ -55,15 +55,10 @@ export function canAccessDivision(code) {
   return s.role === 'finance' || (s.role === 'division' && s.division?.code === code);
 }
 
-// Nama pengisi terakhir di perangkat ini (kenyamanan saja, opsional)
-export function getRememberedName() {
-  try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; }
-}
-export function rememberName(name) {
-  try {
-    if (name) localStorage.setItem(NAME_KEY, name);
-    else localStorage.removeItem(NAME_KEY);
-  } catch { /* abaikan */ }
+// D-46: kolom nama di halaman login dihapus. Nama yang dulu sempat diingat di perangkat ini dibersihkan
+// (pernah ada PIN yang terketik di kolom nama, jadi jangan dibiarkan tersimpan di browser).
+export function forgetRememberedName() {
+  try { localStorage.removeItem(NAME_KEY); } catch { /* abaikan */ }
 }
 
 // Draft lokal (autosave) - hanya data form, tanpa token/PIN

@@ -1,4 +1,4 @@
-// Overview divisi (U-07): hanya data divisi sendiri, hanya program Diajukan.
+// Overview divisi (U-07): hanya data divisi sendiri, hanya program Diajukan. Pop-up rincian: D-45.
 
 import { h, icon } from '../utils.js';
 import { rpc, errorMessage } from '../api.js';
@@ -6,10 +6,11 @@ import { getYear } from '../store.js';
 import { refresh } from '../router.js';
 import { pageHead, errorBlock, skeletonStats, emptyState } from '../ui/components.js';
 import { renderOverview } from './overview-render.js';
+import { createOverviewDrill } from './finance-overview-detail.js';
 
 export async function divisionOverviewView(main, ctx) {
   const code = ctx.params.code;
-  main.append(pageHead({ title: `Overview ${ctx.division.name}`, subtitle: 'Ringkasan anggaran yang sudah diajukan divisi ini' }));
+  main.append(pageHead({ title: `Overview ${ctx.division.name}`, subtitle: 'Ringkasan anggaran yang sudah diajukan divisi ini. Klik kartu atau baris untuk melihat rinciannya.' }));
   const body = h('div', { class: 'stack' }, skeletonStats(4));
   main.append(body);
 
@@ -31,5 +32,7 @@ export async function divisionOverviewView(main, ctx) {
     })));
     return;
   }
-  body.replaceChildren(...renderOverview(d, { year, programHref: (r) => `#/d/${code}/p/${r.id}` }));
+  // D-45: kartu/baris bisa diklik seperti Overview Finance, isinya hanya program Diajukan divisi ini
+  const drill = createOverviewDrill({ year, totals: { total: Number(d.total) || 0, count: d.program_count }, divisionCode: code });
+  body.replaceChildren(...renderOverview(d, { year, programHref: (r) => `#/d/${code}/p/${r.id}`, drill }));
 }

@@ -70,7 +70,7 @@ Finance:
 - Footer: kontak Finance (email dan WhatsApp).
 
 ### 5.2 PIN gate
-- Modal: "Masukkan PIN {nama divisi}". Input tipe password + tombol tampilkan. Input opsional "Nama Anda" (A-04) yang dicatat di log.
+- Modal: "Masukkan PIN {nama divisi}". Input tipe password + tombol tampilkan. ~~Input opsional "Nama Anda" (A-04) yang dicatat di log.~~ Dihapus oleh D-46: cukup PIN.
 - Pesan: "PIN salah. Sisa percobaan: N", "Divisi terkunci sementara, coba lagi dalam N menit atau hubungi Finance".
 - Lupa PIN -> teks: "Hubungi Finance" + tautan WA/ email.
 

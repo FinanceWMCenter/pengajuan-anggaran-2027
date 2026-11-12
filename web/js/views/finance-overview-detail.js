@@ -1,5 +1,6 @@
-// Pop-up rincian Overview Finance (D-42): setiap kartu/baris bisa diklik untuk melihat rincian + totalnya.
-// Semua angka berasal dari database (rpc_f_overview_detail, hanya program Diajukan). Total pop-up dicocokkan
+// Pop-up rincian Overview (D-42 Finance, D-45 divisi): setiap kartu/baris bisa diklik untuk melihat rincian + totalnya.
+// Semua angka berasal dari database (rpc_f_overview_detail / rpc_overview_division_detail, hanya program Diajukan;
+// Overview divisi hanya memuat data divisi itu sendiri). Total pop-up dicocokkan
 // dengan angka yang diklik; bila berbeda (mis. ada divisi baru submit), tampil peringatan + tombol muat ulang.
 
 import { h, icon, formatRupiah, formatPercent, formatNumber, formatDate, monthName, plural } from '../utils.js';
@@ -24,12 +25,19 @@ function totalFooter(colspan, label, total, trailing = 0) {
  * @param {number} o.year
  * @param {Array} o.perDivisi d.per_divisi (dasar pop-up Per grup, termasuk divisi bernilai Rp 0)
  * @param {{total:number, count:number}} o.totals total keseluruhan di Overview
+ * @param {string} [o.divisionCode] D-45: Overview satu divisi. Data hanya divisi itu (rpc_overview_division_detail),
+ *   kolom Divisi disembunyikan, dan tautan program menuju halaman divisi.
  */
-export function createOverviewDrill({ year, perDivisi, totals }) {
+export function createOverviewDrill({ year, perDivisi = [], totals, divisionCode = null }) {
+  const single = Boolean(divisionCode);
+  const programHref = (id) => (single ? `#/d/${divisionCode}/p/${id}` : `#/finance/p/${id}`);
   let detail = null;
   let isOpen = false;
   const load = () => {
-    if (!detail) detail = rpc('rpc_f_overview_detail').catch((e) => { detail = null; throw e; });
+    if (!detail) {
+      detail = (single ? rpc('rpc_overview_division_detail', { p_division_code: divisionCode }) : rpc('rpc_f_overview_detail'))
+        .catch((e) => { detail = null; throw e; });
+    }
     return detail;
   };
 
@@ -104,19 +112,31 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
       ]);
   }
 
-  /** Tabel daftar program; hide = kolom yang sudah jelas dari judul pop-up. */
+  /** Overview divisi (D-45), pop-up kuartal: program dikelompokkan per bulan (urut bulan), tiap bulan ditutup subtotal. */
+  function groupByMonth(rows, cellsFor) {
+    const months = [...new Set(rows.map((p) => p.periode_bulan))].sort((a, z) => a - z);
+    return months.flatMap((m) => {
+      const own = rows.filter((p) => p.periode_bulan === m);
+      return [...own, { subtotalCells: cellsFor(`Subtotal ${monthName(m)} · ${plural(own.length, 'program')}`, sumBy(own, 'total')) }];
+    });
+  }
+
+  /** Tabel daftar program; hide = kolom yang sudah jelas dari judul pop-up (byMonth = kelompok per bulan). */
   function programTable(rows, linkTo, hide = {}) {
+    if (single) hide = { ...hide, division: true };
     const columns = [
       { label: 'Bulan', cls: 'nowrap', render: (p) => monthName(p.periode_bulan, year) },
       hide.division ? null : { label: 'Divisi', cls: 'cell-start', render: (p) => p.division_name },
-      { label: 'Nama Program', cls: 'cell-start cell-name', render: (p) => linkTo(`#/finance/p/${p.id}`, p.nama_program) },
+      { label: 'Nama Program', cls: 'cell-start cell-name', render: (p) => linkTo(programHref(p.id), p.nama_program) },
       hide.category ? null : { label: 'Kategori', cls: 'cell-start', render: (p) => p.program_category_name },
       { label: 'PIC', cls: 'cell-start', render: (p) => p.pic_nama },
       { label: 'Total', cls: 'cell-num', render: (p) => formatRupiah(p.total) },
     ].filter(Boolean);
     const total = sumBy(rows, 'total');
-    const display = hide.division ? rows
-      : groupByDivision(rows, (p) => p, 'total', 'program', (label, amount) => totalFooter(columns.length - 1, label, amount));
+    const subtotalRow = (label, amount) => totalFooter(columns.length - 1, label, amount);
+    let display = rows;
+    if (hide.byMonth) display = groupByMonth(rows, subtotalRow);
+    else if (!hide.division) display = groupByDivision(rows, (p) => p, 'total', 'program', subtotalRow);
     return {
       total,
       count: rows.length,
@@ -154,8 +174,9 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
         title: `${label} ${year}`,
         description: summary(r.count, 'program', r.total),
         expected: { total: r.total, count: r.count },
-        build: (data) => {
+        build: (data, linkTo) => {
           const rows = data.programs.filter((p) => months.includes(p.periode_bulan));
+          if (single) return programTable(rows, linkTo, { byMonth: true });
           const byDiv = new Map();
           for (const p of rows) {
             if (!byDiv.has(p.division_code)) byDiv.set(p.division_code, { name: p.division_name, group: p.group_name, total: 0, m: {} });
@@ -260,16 +281,16 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
           const total = sumBy(rows, 'subtotal');
           const columns = [
             { label: 'Bulan', cls: 'nowrap', render: (i) => monthName(programs.get(i.program_id)?.periode_bulan, year) },
-            { label: 'Divisi', cls: 'cell-start', render: (i) => programs.get(i.program_id)?.division_name },
-            { label: 'Nama Program', cls: 'cell-start cell-name', render: (i) => linkTo(`#/finance/p/${i.program_id}`, programs.get(i.program_id)?.nama_program || '-') },
+            single ? null : { label: 'Divisi', cls: 'cell-start', render: (i) => programs.get(i.program_id)?.division_name },
+            { label: 'Nama Program', cls: 'cell-start cell-name', render: (i) => linkTo(programHref(i.program_id), programs.get(i.program_id)?.nama_program || '-') },
             { label: 'Uraian', cls: 'cell-start', render: (i) => i.uraian },
             { label: 'Qty', cls: 'num', render: (i) => formatNumber(i.qty) },
             { label: 'Satuan', render: (i) => i.satuan },
             { label: 'Harga', cls: 'cell-num', render: (i) => formatRupiah(i.harga_satuan) },
             { label: 'Subtotal', cls: 'cell-num', render: (i) => formatRupiah(i.subtotal) },
             { label: 'Catatan', cls: 'cell-start', render: (i) => i.catatan || '' },
-          ];
-          const display = groupByDivision(rows, (i) => programs.get(i.program_id), 'subtotal', 'baris',
+          ].filter(Boolean);
+          const display = single ? rows : groupByDivision(rows, (i) => programs.get(i.program_id), 'subtotal', 'baris',
             (label, amount) => totalFooter(columns.length - 2, label, amount, 1));
           return {
             total,
@@ -313,7 +334,7 @@ export function createOverviewDrill({ year, perDivisi, totals }) {
                 columns, rows,
                 footer: totalFooter(columns.length - 2, `TOTAL · ${plural(rows.length, 'baris')}`, total, 1),
               }),
-              h('p', { class: 'drill-foot' }, linkTo(`#/finance/p/${r.id}`, 'Buka halaman program')),
+              h('p', { class: 'drill-foot' }, linkTo(programHref(r.id), 'Buka halaman program')),
             ],
           };
         },

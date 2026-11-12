@@ -18,8 +18,7 @@ function card(title, subtitle, table) {
 /**
  * @param {object} d hasil rpc_overview_division / rpc_f_overview
  * @param {object} o {year, finance:boolean, programHref:(row)=>string, drill?:object}
- *   drill (hanya Finance, D-42): kartu/baris menjadi bisa diklik dan membuka pop-up rincian.
- *   Tanpa drill (Overview divisi) tampilan dan perilakunya tidak berubah.
+ *   drill (Finance D-42, divisi D-45): kartu/baris menjadi bisa diklik dan membuka pop-up rincian.
  */
 export function renderOverview(d, { year, finance = false, programHref, drill = null }) {
   const blocks = [];

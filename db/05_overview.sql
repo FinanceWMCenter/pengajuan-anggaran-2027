@@ -210,18 +210,15 @@ begin
 end;
 $$;
 
--- Rincian untuk pop-up Overview Finance (D-42). Hanya membaca; hanya program Diajukan (dasar yang sama dengan angka Overview).
--- Dibuka sekali saat pop-up pertama diklik, sehingga halaman Overview tetap ringan.
-create or replace function public.rpc_f_overview_detail(p_token text)
+-- Isi pop-up rincian Overview (pembantu internal, D-42/D-45). Hanya membaca; hanya program Diajukan
+-- (dasar yang sama dengan angka Overview). p_division_id null = semua divisi (Finance), selain itu satu divisi.
+create or replace function public._overview_detail(p_division_id smallint)
 returns jsonb
-language plpgsql
-security definer
+language sql
+stable
 set search_path = public, extensions
 as $$
-declare
-  s public.sessions := public._require_session(p_token, 'finance');
-begin
-  return jsonb_build_object(
+  select jsonb_build_object(
     'programs', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', o.id,
@@ -233,7 +230,7 @@ begin
                'tanggal_pengajuan', p.tanggal_pengajuan,
                'total', o.total
              ) order by o.total desc, lower(o.nama_program), o.id)
-      from public._ov_programs(null::smallint) o
+      from public._ov_programs(p_division_id) o
       join public.programs p on p.id = o.id
       join public.divisions d on d.id = o.division_id
       join public.division_groups g on g.id = d.group_id
@@ -251,18 +248,50 @@ begin
                'subtotal', i.subtotal,
                'catatan', i.catatan
              ) order by i.subtotal desc, i.program_id, i.urutan)
-      from public._ov_programs(null::smallint) o
+      from public._ov_programs(p_division_id) o
       join public.program_items i on i.program_id = o.id
       left join public.item_categories ic on ic.id = i.item_category_id
     ), '[]'::jsonb)
   );
+$$;
+
+-- Rincian pop-up Overview Finance (D-42): seluruh divisi. Dibuka sekali saat pop-up pertama diklik.
+create or replace function public.rpc_f_overview_detail(p_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s public.sessions := public._require_session(p_token, 'finance');
+begin
+  return public._overview_detail(null::smallint);
 end;
 $$;
 
--- Izin: hanya fungsi rpc_*; pembantu (_overview, _ov_programs, _overview_finance) tetap tertutup
+-- Rincian pop-up Overview divisi (D-45): HANYA divisi sendiri (sesi divisi tidak bisa membuka divisi lain);
+-- sesi Finance boleh membuka divisi pilihan (sama dengan rpc_overview_division).
+create or replace function public.rpc_overview_division_detail(p_token text, p_division_code text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  s     public.sessions := public._require_session(p_token);
+  v_div smallint := public._division_context(s, p_division_code);
+begin
+  return public._overview_detail(v_div);
+end;
+$$;
+
+-- Izin: hanya fungsi rpc_*; pembantu (_overview, _ov_programs, _overview_finance, _overview_detail) tetap tertutup
 revoke all on function public._overview(smallint, int) from public, anon, authenticated;
 revoke all on function public._ov_programs(smallint) from public, anon, authenticated;
 revoke all on function public._overview_finance() from public, anon, authenticated;
+revoke all on function public._overview_detail(smallint) from public, anon, authenticated;
+revoke all on function public.rpc_overview_division_detail(text, text) from public, anon, authenticated;
+grant execute on function public.rpc_overview_division_detail(text, text) to anon;
 revoke all on function public.rpc_overview_division(text, text) from public, anon, authenticated;
 revoke all on function public.rpc_f_overview(text) from public, anon, authenticated;
 grant execute on function public.rpc_overview_division(text, text) to anon;

@@ -4,7 +4,7 @@
 
 import { h, icon } from '../utils.js';
 import { rpc, errorMessage, MESSAGES } from '../api.js';
-import { getSession, setSession, clearSession, getRememberedName, rememberName } from '../session.js';
+import { getSession, setSession, clearSession, forgetRememberedName } from '../session.js';
 import { getDivisions } from '../store.js';
 import { createPinPad } from '../ui/pin-pad.js';
 import { contactLinks } from '../ui/components.js';
@@ -32,11 +32,7 @@ function canOpen(session, path) {
 export async function loginView(main, ctx) {
   const { contacts } = ctx;
   main.classList.add('login-main');
-
-  const nameInput = h('input', {
-    class: 'wm-input', id: 'actor-name', type: 'text', maxlength: 100, autocomplete: 'name',
-    placeholder: 'Contoh: Rina', value: getRememberedName(),
-  });
+  forgetRememberedName(); // D-46: cukup PIN, tanpa kolom nama
 
   const existing = getSession();
   const groupByCode = new Map(); // untuk teks kecil di animasi selamat datang (diisi saat daftar divisi dimuat)
@@ -55,14 +51,13 @@ export async function loginView(main, ctx) {
     onSubmit: async (pin) => {
       let res;
       try {
-        res = await rpc('rpc_login_pin', { p_pin: pin, p_actor_name: nameInput.value.trim() || null }, { auth: false });
+        res = await rpc('rpc_login_pin', { p_pin: pin }, { auth: false });
       } catch (e) {
         return { ok: false, message: errorMessage(e) };
       }
       if (!res || !res.ok) return { ok: false, message: MESSAGES[res?.error] || MESSAGES.PIN_WRONG };
 
       if (existing) clearSession();
-      rememberName(nameInput.value.trim());
       const s = setSession(res);
       const target = ctx.returnTo && canOpen(s, ctx.returnTo) ? ctx.returnTo : homePathFor(s);
       if (ctx.returnTo && target !== ctx.returnTo && s.role === 'division') {
@@ -95,10 +90,6 @@ export async function loginView(main, ctx) {
       h('h2', { class: 'pin-title', id: 'login-title' }, 'Masukkan PIN'),
       h('p', { class: 'pin-sub' }, '6 digit dari Finance. Divisi Anda terbaca otomatis.'),
       note,
-      h('div', { class: 'wm-field' },
-        h('label', { class: 'wm-label', for: 'actor-name' }, 'Nama Anda (opsional)'),
-        nameInput,
-        h('p', { class: 'wm-hint login-name-hint' }, 'Dicatat di riwayat perubahan.')),
       pad.el,
       h('div', { class: 'pin-help' }, h('b', null, 'Lupa PIN? '), 'Hubungi Finance: ', contactLinks(contacts), '.')),
   );
