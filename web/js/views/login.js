@@ -97,10 +97,7 @@ export async function loginView(main, ctx) {
             class: 'contact-btn is-wa', href: contacts.wa_link, target: '_blank', rel: 'noopener noreferrer',
             'aria-label': `WhatsApp Finance ${contacts.wa}`, title: `WhatsApp ${contacts.wa}`,
           }, icon('whatsapp')),
-          h('a', {
-            class: 'contact-btn is-mail', href: `mailto:${contacts.email_2}`,
-            'aria-label': `Email Finance ${contacts.email_2}`, title: contacts.email_2,
-          }, icon('mail'))))),
+          mailButton(contacts.email_2)))),
   );
   pad.focus();
 
@@ -113,6 +110,22 @@ export async function loginView(main, ctx) {
   } catch {
     marquee.hidden = true;
   }
+}
+
+/**
+ * Logo email (D-47a). Laptop/PC: membuka Gmail di tab baru (domain kantor memakai Google Workspace;
+ * "mailto" tidak bereaksi bila tidak ada aplikasi email terpasang). HP/tablet sentuh: aplikasi email bawaan.
+ */
+function mailButton(email) {
+  const subject = 'Lupa PIN - Pengajuan Anggaran 2027';
+  const touch = window.matchMedia?.('(pointer: coarse)').matches;
+  const attrs = touch
+    ? { href: `mailto:${email}?subject=${encodeURIComponent(subject)}` }
+    : {
+      href: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}`,
+      target: '_blank', rel: 'noopener noreferrer',
+    };
+  return h('a', { class: 'contact-btn is-mail', ...attrs, 'aria-label': `Email Finance ${email}`, title: email }, icon('mail'));
 }
 
 function buildMarquee(el, names) {
