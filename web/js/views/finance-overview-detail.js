@@ -150,6 +150,29 @@ export function createOverviewDrill({ year, perDivisi = [], totals, divisionCode
   const summary = (count, unit, total) => `${plural(Number(count), unit)} · ${formatRupiah(total)}`;
 
   return {
+    /** Data rincian (dipakai juga oleh peta warna Divisi × Bulan di Dashboard, D-48). */
+    data: load,
+
+    /** Dashboard (D-48): program dari Januari s.d. akhir bulan m, dikelompokkan per bulan. */
+    upToMonth(m, expected) {
+      show({
+        title: `Program s.d. akhir ${monthName(m, year)}`,
+        description: summary(expected.count, 'program', expected.total),
+        expected,
+        build: (data, linkTo) => programTable(data.programs.filter((p) => p.periode_bulan <= m), linkTo, { byMonth: true }),
+      });
+    },
+
+    /** Dashboard (D-48): kotak peta warna = program satu divisi di satu bulan. */
+    divisionMonth(r, m, expected) {
+      show({
+        title: `${r.name} · ${monthName(m, year)}`,
+        description: summary(expected.count, 'program', expected.total),
+        expected,
+        build: (data, linkTo) => programTable(data.programs.filter((p) => p.division_code === r.code && p.periode_bulan === m), linkTo, { division: true }),
+      });
+    },
+
     all() {
       show({
         title: `Semua program diajukan ${year}`,
@@ -212,6 +235,17 @@ export function createOverviewDrill({ year, perDivisi = [], totals, divisionCode
     },
 
     group(r) {
+      // Grup berisi satu divisi: langsung daftar program divisi itu (D-48)
+      const members = perDivisi.filter((x) => x.group_name === r.name);
+      if (members.length === 1) {
+        show({
+          title: `Grup ${r.name}`,
+          description: summary(r.count, 'program', r.total),
+          expected: { total: r.total, count: r.count },
+          build: (data, linkTo) => programTable(data.programs.filter((p) => p.group_name === r.name), linkTo, { division: true }),
+        });
+        return;
+      }
       show({
         title: `Grup ${r.name}`,
         description: summary(r.count, 'program', r.total),

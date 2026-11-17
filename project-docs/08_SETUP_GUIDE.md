@@ -95,8 +95,13 @@ powershell -ExecutionPolicy Bypass -File tests\rest_security_check.ps1 -Url "htt
    powershell -ExecutionPolicy Bypass -File tools\backup.ps1
    ```
    - `Connection string:` tempel dari Supabase -> **Connect** -> Connection String -> **Shared/Session pooler** (port 5432). Bagian `[YOUR-PASSWORD]` biarkan apa adanya.
-   - `Password:` tempel password database Supabase (klik kanan sekali; tidak terlihat, itu normal) -> Enter.
-   - Hasil: **BACKUP BERHASIL**, file di `Dokumen\Backup-Anggaran2027` (di luar repo). Simpan salinan juga di tempat lain (mis. Google Drive Finance). **Jangan commit file .dump.**
+   - `Password database Supabase:` tempel password database Supabase (klik kanan sekali; tidak terlihat, itu normal) -> Enter. Diminta **sekali** saja.
+   - Hasil: **BACKUP BERHASIL** + **SALINAN EXCEL BERHASIL**. Di `Dokumen\Backup-Anggaran2027` (di luar repo) ada 3 hasil dengan nama yang sama (D-49):
+     - `backup_DEV_<tanggal_jam>.dump` = file **pemulihan** lengkap (untuk memulihkan database; tidak bisa dibuka di Excel).
+     - `backup_DEV_<tanggal_jam>.xlsx` = salinan **yang bisa dibaca** di Excel/Google Sheets: Info, Ringkasan Divisi, Program (semua program dengan kondisi terakhir), Rincian Kebutuhan, Riwayat Revisi Item, Log Riwayat, Master Data.
+     - folder `backup_DEV_<tanggal_jam>_csv` = isi yang sama dalam CSV (bisa diimpor ke platform database apa pun).
+   - Salinan Excel/CSV hanya **membaca** database (tidak mengubah apa pun) dan **tidak** berisi hash PIN, token login, atau catatan percobaan login. File `.dump` tetap lengkap.
+   - Simpan ketiganya juga di tempat lain (mis. Google Drive Finance). **Jangan commit file backup ke GitHub.**
    - Untuk PROD tambahkan `-Label PROD`.
    - Lupa password database Supabase? Connect -> **Reset database password** (aman: web & keepalive tidak memakai password ini).
 3. **Latihan restore** (minimal sekali sebelum go-live, lalu sesekali):

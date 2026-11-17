@@ -1,4 +1,4 @@
-// Overview divisi (U-07): hanya data divisi sendiri, hanya program Diajukan. Pop-up rincian: D-45.
+// Dashboard divisi (U-07, dulu "Overview"; D-48): hanya data divisi sendiri, hanya program Diajukan. Pop-up rincian: D-45.
 
 import { h, icon } from '../utils.js';
 import { rpc, errorMessage } from '../api.js';
@@ -10,7 +10,7 @@ import { createOverviewDrill } from './finance-overview-detail.js';
 
 export async function divisionOverviewView(main, ctx) {
   const code = ctx.params.code;
-  main.append(pageHead({ title: `Overview ${ctx.division.name}`, subtitle: 'Ringkasan anggaran yang sudah diajukan divisi ini. Klik kartu atau baris untuk melihat rinciannya.' }));
+  main.append(pageHead({ title: `Dashboard ${ctx.division.name}`, subtitle: 'Ringkasan anggaran yang sudah diajukan divisi ini. Klik kartu, grafik, atau baris untuk melihat rinciannya.' }));
   const body = h('div', { class: 'stack' }, skeletonStats(4));
   main.append(body);
 
@@ -25,14 +25,14 @@ export async function divisionOverviewView(main, ctx) {
 
   if (d.program_count === 0 && d.draft_count === 0) {
     body.replaceChildren(h('div', { class: 'wm-card' }, emptyState({
-      title: 'Belum ada data untuk Overview',
-      text: ctx.readOnly ? 'Divisi ini belum mengisi program.' : 'Tambahkan program lalu Submit Pengajuan. Overview hanya menghitung program yang sudah diajukan.',
+      title: 'Belum ada data untuk Dashboard',
+      text: ctx.readOnly ? 'Divisi ini belum mengisi program.' : 'Tambahkan program lalu Submit Pengajuan. Dashboard hanya menghitung program yang sudah diajukan.',
       action: ctx.readOnly ? null : h('a', { class: 'wm-btn wm-btn-primary', href: `#/d/${code}/new` }, icon('plus'), 'Tambah Program'),
       iconName: 'overview',
     })));
     return;
   }
-  // D-45: kartu/baris bisa diklik seperti Overview Finance, isinya hanya program Diajukan divisi ini
+  // D-45/D-48: kartu, grafik, dan baris bisa diklik seperti Dashboard Finance, isinya hanya program Diajukan divisi ini
   const drill = createOverviewDrill({ year, totals: { total: Number(d.total) || 0, count: d.program_count }, divisionCode: code });
-  body.replaceChildren(...renderOverview(d, { year, programHref: (r) => `#/d/${code}/p/${r.id}`, drill }));
+  body.replaceChildren(...renderOverview(d, { year, drill }));
 }

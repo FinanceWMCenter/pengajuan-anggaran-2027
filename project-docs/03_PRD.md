@@ -104,14 +104,14 @@ Kolom: No | Uraian kebutuhan | Kategori (dropdown wajib) | Qty | Satuan (saran: 
 ### 5.5 Detail program
 Info program + tabel kebutuhan (read-only) + total + tombol Edit, Duplikat, Hapus, Kembali. Menampilkan "Diajukan pada ..." dan "Terakhir diubah ...".
 
-### 5.6 Overview divisi (U-07) - menu "Overview"
+### 5.6 Overview divisi (U-07) - menu "Overview" (sejak D-48: menu **"Dashboard"**, paling atas; isi lihat D-48 di 10_DECISIONS_LOG)
 Kartu: Total setahun | Jumlah program | Rata-rata per program | Bulan paling besar (nama + nominal) | Kategori program terbesar | Kategori baris terbesar | Program terbesar.
 Tabel: per bulan (Jan-Des: jumlah program, total, % dari total) | per kuartal (Q1-Q4) | per kategori program | per kategori baris | daftar 5 program terbesar. Sorot bulan paling besar.
 Hanya program berstatus Diajukan yang dihitung; tampilkan catatan "N draft belum dihitung".
 
 ### 5.7 Finance
 - Login: input master PIN.
-- Overview Finance: semua kartu di atas versi seluruh perusahaan + tabel per divisi (jumlah program, total, %), per grup (rollup, mis. total HR), **status pengisian** (divisi yang belum punya pengajuan), top 10 program.
+- Overview Finance: semua kartu di atas versi seluruh perusahaan + tabel per divisi (jumlah program, total, %), per grup (rollup, mis. total HR), **status pengisian** (divisi yang belum punya pengajuan), top 10 program. **Diperbarui D-48:** menjadi "Dashboard" dengan grafik (ringkasan akumulasi, per bulan, pie per grup, peta divisi × bulan); status pengisian dan tabel per kuartal dihapus.
 - Semua Program: tabel lintas divisi + filter (divisi, bulan, kategori, status) + hapus dengan alasan.
 - Divisi: daftar divisi, jumlah program, tanggal PIN terakhir diganti, status kunci; aksi Atur PIN, Buka kunci.
 - Kategori: dua daftar (kategori program, kategori baris) dengan tambah dan aktif/ nonaktif.

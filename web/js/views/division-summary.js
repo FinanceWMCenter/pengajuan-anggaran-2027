@@ -102,7 +102,7 @@ export async function divisionSummaryView(main, ctx) {
         ],
       },
     ];
-    // Baris total = hanya Diajukan (sama dengan kartu & Overview). Draft disebut terpisah.
+    // Baris total = hanya Diajukan (sama dengan kartu & Dashboard). Draft disebut terpisah.
     const onlyDraft = fStatus.value === 'draft';
     const footer = [
       h('td', { colspan: 5, class: 'cell-start' }, onlyDraft ? 'TOTAL DRAFT (belum dihitung)' : 'TOTAL DIAJUKAN'),

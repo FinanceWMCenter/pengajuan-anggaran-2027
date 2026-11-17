@@ -29,7 +29,7 @@ export async function financeExportView(main) {
   main.append(pageHead({ title: 'Export Data', subtitle: 'Unduh seluruh data program dan baris kebutuhan (satu baris per kebutuhan)' }));
 
   const status = h('select', { class: 'wm-select', id: 'ex-status' },
-    h('option', { value: 'diajukan' }, 'Hanya Diajukan (sesuai Overview)'),
+    h('option', { value: 'diajukan' }, 'Hanya Diajukan (sesuai Dashboard)'),
     h('option', { value: 'all' }, 'Semua (Diajukan + Draft)'),
     h('option', { value: 'draft' }, 'Hanya Draft'));
   const result = h('div', null);

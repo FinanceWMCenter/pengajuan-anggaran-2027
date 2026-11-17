@@ -32,11 +32,11 @@ const root = document.getElementById('app');
 addRoute('/', { access: 'login', view: loginView });
 addRoute('/finance', { access: 'login', view: loginView });
 addRoute('/d/:code', { access: 'division', nav: 'summary', title: 'Ringkasan Program', view: divisionSummaryView });
-addRoute('/d/:code/overview', { access: 'division', nav: 'overview', title: 'Overview', view: divisionOverviewView });
+addRoute('/d/:code/overview', { access: 'division', nav: 'overview', title: 'Dashboard', view: divisionOverviewView });
 addRoute('/d/:code/new', { access: 'division', nav: 'new', title: 'Tambah Program', view: programFormView, writable: true });
 addRoute('/d/:code/p/:id', { access: 'division', nav: 'summary', title: 'Detail Program', view: programDetailView });
 addRoute('/d/:code/p/:id/edit', { access: 'division', nav: 'summary', title: 'Ubah Program', view: programFormView, writable: true });
-addRoute('/finance/overview', { access: 'finance', nav: 'f-overview', title: 'Overview Finance', view: financeOverviewView });
+addRoute('/finance/overview', { access: 'finance', nav: 'f-overview', title: 'Dashboard', view: financeOverviewView });
 addRoute('/finance/programs', { access: 'finance', nav: 'f-programs', title: 'Semua Program', view: financeProgramsView });
 addRoute('/finance/p/:id', { access: 'finance', nav: 'f-programs', title: 'Detail Program', view: programDetailView });
 addRoute('/finance/divisions', { access: 'finance', nav: 'f-divisions', title: 'Divisi & PIN', view: financeDivisionsView });
@@ -154,8 +154,9 @@ function divisionShell(ctx, route) {
   const s = ctx.session;
   const code = ctx.params.code;
   const nav = [
+    // D-48: Dashboard paling atas untuk semua akun
+    { key: 'overview', label: 'Dashboard', icon: 'overview', href: `#/d/${code}/overview` },
     { key: 'summary', label: 'Ringkasan Program', icon: 'list', href: `#/d/${code}` },
-    { key: 'overview', label: 'Overview', icon: 'overview', href: `#/d/${code}/overview` },
   ];
   if (!ctx.readOnly) nav.push({ key: 'new', label: 'Tambah Program', icon: 'plus', href: `#/d/${code}/new` });
   if (ctx.readOnly) {
@@ -181,7 +182,7 @@ function financeShell(ctx, route) {
   const s = ctx.session;
   return renderShell(root, {
     nav: [
-      { key: 'f-overview', label: 'Overview', icon: 'overview', href: '#/finance/overview' },
+      { key: 'f-overview', label: 'Dashboard', icon: 'overview', href: '#/finance/overview' },
       { key: 'f-programs', label: 'Semua Program', icon: 'list', href: '#/finance/programs' },
       { group: 'Pengaturan' },
       { key: 'f-divisions', label: 'Divisi & PIN', icon: 'key', href: '#/finance/divisions' },
