@@ -7,5 +7,7 @@
 //   SUPABASE_URL      = "Project URL", contoh: https://abcdefghijkl.supabase.co
 //   SUPABASE_ANON_KEY = "anon public" key (diawali eyJ...) atau "publishable" key (diawali sb_publishable_...)
 
-export const SUPABASE_URL = 'https://ncglmqyxyyhcekxjpueb.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_8x_w93gzTNOrmSE32M578A_dFhPX56z';
+// PROD (anggaran-2027-prod, Singapore) sejak go-live 2026-11-18.
+// DEV lama (bila perlu uji coba): https://ncglmqyxyyhcekxjpueb.supabase.co / sb_publishable_8x_w93gzTNOrmSE32M578A_dFhPX56z
+export const SUPABASE_URL = 'https://lbbrpllexurinwiafgxt.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_lBZFmpLYICRGMbMOfseNmg_RgtOiTvo';
