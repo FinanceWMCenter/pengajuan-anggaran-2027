@@ -51,14 +51,22 @@ Invoke-Psql @("-d", "postgres", "-c", "create database $Database")
 Invoke-Psql @("-d", $Database, "-c", "create schema if not exists extensions; create extension if not exists pgcrypto with schema extensions; create extension if not exists pg_trgm with schema extensions;")
 
 Write-Host "2) Memulihkan isi backup ..." -ForegroundColor Cyan
-$out = & $pgRestore -h localhost -p $Port -U $User -w --no-owner --no-privileges -d $Database $File 2>&1 | ForEach-Object { $_.ToString() }
-# Pesan "schema public already exists" wajar (database baru sudah punya schema public); selain itu = masalah
-$errors = @($out | Where-Object { $_ -match 'error:' -and $_ -notmatch 'schema "public" already exists' -and $_ -notmatch 'errors ignored on restore: 1$' })
-if ($errors.Count -gt 0) {
-  $errors | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-  Write-Host "RESTORE BERMASALAH. Salin pesan di atas ke Claude." -ForegroundColor Red
-  Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
-  exit 1
+# Backup diubah dulu menjadi teks SQL. Supabase (Postgres 17.12 ke atas) menambah pengaturan kolom khusus
+# "pg_attver" yang tidak dikenal Postgres biasa; baris pengaturan itu dibuang (bukan data, tidak mengubah isi tabel).
+$tmpSql = Join-Path $env:TEMP ("restore_" + [guid]::NewGuid().ToString('N') + ".sql")
+try {
+  & $pgRestore --no-owner --no-privileges -f $tmpSql $File
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $tmpSql)) { Write-Host "File backup tidak bisa dibaca (rusak?)." -ForegroundColor Red; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue; exit 1 }
+  $all = [IO.File]::ReadAllLines($tmpSql, (New-Object Text.UTF8Encoding $false))
+  $keep = @($all | Where-Object { $_ -notmatch '^ALTER TABLE ONLY public\.[a-z_]+ ALTER COLUMN [a-z_]+ SET \(pg_attver=[0-9]+\);$' })
+  Write-Host ("   Baris pengaturan khusus Supabase (pg_attver) yang dibuang: " + ($all.Count - $keep.Count))
+  [IO.File]::WriteAllLines($tmpSql, $keep, (New-Object Text.UTF8Encoding $false))
+  # Database baru sudah punya schema public kosong; isi backup membuatnya sendiri
+  Invoke-Psql @("-d", $Database, "-c", "drop schema public cascade")
+  Invoke-Psql @("-d", $Database, "-o", "NUL", "-f", $tmpSql)
+}
+finally {
+  Remove-Item $tmpSql -Force -ErrorAction SilentlyContinue
 }
 
 # Backup sengaja dibuat tanpa hak akses (--no-privileges). Setelah restore, aturan keamanan WAJIB dipasang ulang

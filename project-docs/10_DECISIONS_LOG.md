@@ -130,3 +130,4 @@ Bila ada konflik dengan dokumen lain, dokumen ini menang. Bila Claude menemukan 
 | 2026-11-13 | D-48: Overview menjadi Dashboard (grafik, menu paling atas) |
 | 2026-11-17 | D-49: backup yang bisa dibaca (Excel + CSV) |
 | 2026-11-18 | PROD dibuat (`anggaran-2027-prod`, Singapore; "Automatically expose new tables" dimatikan): SQL 01-05 + 06 (14 PIN asli), tanpa data uji; `rest_security_check` SEMUA LULUS; 13 divisi / 10 kategori program / 13 kategori kebutuhan sama dengan DEV; `web/config.js` dipindah ke PROD |
+| 2026-11-18 | Backup pertama PROD (dump + Excel + CSV) dipulihkan ke Postgres lokal: 13 divisi ber-PIN, 0 program, audit angka SEMUA COCOK. `tools/restore_test.ps1` diperbaiki: membuang baris `SET (pg_attver=...)` khas Supabase Postgres 17.12 yang ditolak Postgres biasa (diuji dengan backup PROD dan DEV) |
