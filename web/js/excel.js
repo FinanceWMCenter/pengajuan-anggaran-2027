@@ -22,16 +22,47 @@ export function loadXLSX() {
 
 export const TEMPLATE_HEADERS = ['Uraian', 'Kategori', 'Qty', 'Satuan', 'Harga Satuan', 'Catatan'];
 
-/** Unduh template Excel kosong untuk diisi divisi. */
-export async function downloadTemplate(itemCategories, divisionName) {
-  const XLSX = await loadXLSX();
+const xmlEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * Sisipkan dropdown (data validation "list") ke file .xlsx buatan SheetJS. SheetJS versi gratis tidak bisa
+ * menulis data validation, jadi XML sheet diubah langsung di dalam zip (pustaka CFB bawaan SheetJS).
+ * Hanya menambah elemen <dataValidations>; isi sel tidak berubah.
+ */
+export function addListValidation(XLSX, bytes, sheetPath, { sqref, formula, errorTitle, error, promptTitle, prompt }) {
+  const { CFB } = XLSX;
+  const zip = CFB.read(new Uint8Array(bytes), { type: 'array' });
+  const idx = zip.FullPaths.findIndex((p) => p.endsWith(`/${sheetPath}`));
+  if (idx < 0) throw new Error(`Sheet ${sheetPath} tidak ditemukan`);
+  const entry = zip.FileIndex[idx];
+  const xml = new TextDecoder().decode(entry.content);
+  if (xml.includes('<dataValidations')) throw new Error('Sheet sudah punya data validation');
+  const dv = `<dataValidations count="1"><dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1"`
+    + ` errorStyle="stop" errorTitle="${xmlEsc(errorTitle)}" error="${xmlEsc(error)}" promptTitle="${xmlEsc(promptTitle)}" prompt="${xmlEsc(prompt)}"`
+    + ` sqref="${sqref}"><formula1>${xmlEsc(formula)}</formula1></dataValidation></dataValidations>`;
+  // Urutan elemen worksheet (OOXML): dataValidations sesudah sheetData/autoFilter/mergeCells/conditionalFormatting,
+  // sebelum hyperlinks/printOptions/pageMargins/.../ignoredErrors/drawing/tableParts/extLst.
+  const after = xml.search(/<(hyperlinks|printOptions|pageMargins|pageSetup|headerFooter|rowBreaks|colBreaks|customProperties|cellWatches|ignoredErrors|smartTags|drawing|legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)[\s>/]|<\/worksheet>/);
+  if (after < 0 || xml.indexOf('</sheetData>') < 0 || after < xml.indexOf('</sheetData>')) throw new Error('Struktur sheet tidak dikenali');
+  entry.content = new TextEncoder().encode(xml.slice(0, after) + dv + xml.slice(after));
+  entry.size = entry.content.length;
+  return CFB.write(zip, { fileType: 'zip', type: 'array', compression: true });
+}
+
+/**
+ * Buat isi template kebutuhan (.xlsx). Kolom Kategori berupa dropdown dari sheet "Daftar Kategori";
+ * daftarnya diambil dari master data saat template diunduh (kategori aktif saja), jadi selalu mengikuti
+ * penambahan/penonaktifan kategori oleh Finance.
+ * @returns {{ bytes: ArrayBuffer|Uint8Array, dropdown: boolean }}
+ */
+export function buildTemplate(XLSX, itemCategories) {
   const wb = XLSX.utils.book_new();
 
   const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS]);
   ws['!cols'] = [{ wch: 40 }, { wch: 26 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 36 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Kebutuhan');
 
-  const cats = XLSX.utils.aoa_to_sheet([['Kategori (salin persis ke kolom Kategori)'], ...itemCategories.map((c) => [c.name])]);
+  const cats = XLSX.utils.aoa_to_sheet([['Kategori (pilihan dropdown di kolom Kategori)'], ...itemCategories.map((c) => [c.name])]);
   cats['!cols'] = [{ wch: 44 }];
   XLSX.utils.book_append_sheet(wb, cats, 'Daftar Kategori');
 
@@ -40,7 +71,7 @@ export async function downloadTemplate(itemCategories, divisionName) {
     [''],
     ['1. Isi di sheet "Kebutuhan", mulai baris ke-2. Jangan ubah judul kolom di baris 1.'],
     ['2. Uraian: 3-200 karakter. Contoh: Snack peserta pelatihan'],
-    ['3. Kategori: pilih persis salah satu nama di sheet "Daftar Kategori". Tidak ada kategori "Lain-lain".'],
+    ['3. Kategori: klik sel di kolom Kategori lalu pilih dari tanda panah (dropdown). Daftarnya ada di sheet "Daftar Kategori". Tidak ada kategori "Lain-lain".'],
     ['4. Qty: angka lebih dari 0, maksimal 2 angka di belakang koma. Contoh: 2 atau 2,5'],
     ['5. Satuan: contoh pcs, paket, orang, hari, kali, unit, bulan, lembar, set, porsi'],
     ['6. Harga Satuan: angka rupiah tanpa titik/Rp juga boleh. Contoh: 150000'],
@@ -53,8 +84,31 @@ export async function downloadTemplate(itemCategories, divisionName) {
   guide['!cols'] = [{ wch: 100 }];
   XLSX.utils.book_append_sheet(wb, guide, 'Petunjuk');
 
+  const plain = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true });
+  if (!itemCategories.length) return { bytes: plain, dropdown: false };
+  try {
+    // Kebutuhan = sheet pertama (sheet1.xml). Dropdown untuk semua baris isian (baris 2 s.d. maxRows+1).
+    const bytes = addListValidation(XLSX, plain, 'xl/worksheets/sheet1.xml', {
+      sqref: `B2:B${LIMITS.maxRows + 1}`,
+      formula: `'Daftar Kategori'!$A$2:$A$${itemCategories.length + 1}`,
+      errorTitle: 'Kategori tidak dikenal',
+      error: 'Pilih kategori dari daftar (tanda panah). Kategori tidak ada? Hubungi Finance.',
+      promptTitle: 'Kategori',
+      prompt: 'Pilih dari daftar (tanda panah)',
+    });
+    return { bytes, dropdown: true };
+  } catch {
+    return { bytes: plain, dropdown: false }; // tetap bisa dipakai: kategori diketik/salin dari sheet Daftar Kategori
+  }
+}
+
+/** Unduh template Excel kosong untuk diisi divisi. */
+export async function downloadTemplate(itemCategories, divisionName) {
+  const XLSX = await loadXLSX();
+  const { bytes } = buildTemplate(XLSX, itemCategories);
   const safeName = String(divisionName || 'divisi').replace(/[^A-Za-z0-9-]+/g, '_');
-  XLSX.writeFile(wb, `Template_Kebutuhan_Anggaran2027_${safeName}.xlsx`, { compression: true });
+  downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    `Template_Kebutuhan_Anggaran2027_${safeName}.xlsx`);
 }
 
 const HEADER_ALIASES = {
