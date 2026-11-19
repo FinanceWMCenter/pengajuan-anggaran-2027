@@ -71,7 +71,7 @@ async function logout() {
 }
 
 function renderLogin(contacts, ctx) {
-  return loginView(renderPublic(root, contacts, { narrow: true }), ctx);
+  return loginView(renderPublic(root, contacts, { narrow: true, footer: false }), ctx);
 }
 
 // ---------------------------------------------------------------------------

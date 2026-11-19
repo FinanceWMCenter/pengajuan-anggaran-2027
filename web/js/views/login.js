@@ -10,6 +10,7 @@ import { createPinPad } from '../ui/pin-pad.js';
 import { toast } from '../ui/toast.js';
 import { playWelcome } from '../ui/welcome.js';
 import { navigate, onCleanup } from '../router.js';
+import { waButton, mailButton } from '../ui/components.js';
 
 /** Halaman awal untuk sesi yang sudah masuk. */
 export function homePathFor(session) {
@@ -93,11 +94,8 @@ export async function loginView(main, ctx) {
       h('div', { class: 'pin-help' },
         h('span', null, h('b', null, 'Lupa PIN?'), ' Hubungi Finance'),
         h('span', { class: 'pin-contact' },
-          h('a', {
-            class: 'contact-btn is-wa', href: contacts.wa_link, target: '_blank', rel: 'noopener noreferrer',
-            'aria-label': `WhatsApp Finance ${contacts.wa}`, title: `WhatsApp ${contacts.wa}`,
-          }, icon('whatsapp')),
-          mailButton(contacts.email_2)))),
+          waButton(contacts),
+          mailButton(contacts.email_2, { subject: 'Lupa PIN - Pengajuan Anggaran 2027' })))),
   );
   pad.focus();
 
@@ -110,22 +108,6 @@ export async function loginView(main, ctx) {
   } catch {
     marquee.hidden = true;
   }
-}
-
-/**
- * Logo email (D-47a). Laptop/PC: membuka Gmail di tab baru (domain kantor memakai Google Workspace;
- * "mailto" tidak bereaksi bila tidak ada aplikasi email terpasang). HP/tablet sentuh: aplikasi email bawaan.
- */
-function mailButton(email) {
-  const subject = 'Lupa PIN - Pengajuan Anggaran 2027';
-  const touch = window.matchMedia?.('(pointer: coarse)').matches;
-  const attrs = touch
-    ? { href: `mailto:${email}?subject=${encodeURIComponent(subject)}` }
-    : {
-      href: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}`,
-      target: '_blank', rel: 'noopener noreferrer',
-    };
-  return h('a', { class: 'contact-btn is-mail', ...attrs, 'aria-label': `Email Finance ${email}`, title: email }, icon('mail'));
 }
 
 function buildMarquee(el, names) {

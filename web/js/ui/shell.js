@@ -115,15 +115,18 @@ export function renderShell(root, { nav, active, pageTitle, context, user, onLog
   return main;
 }
 
-/** Halaman publik (Home, PIN): latar lembut, watermark, garis gradien atas, footer. */
-export function renderPublic(root, contacts, { narrow = false } = {}) {
+/**
+ * Halaman publik (PIN, halaman galat): latar lembut, watermark, garis gradien atas, footer.
+ * footer:false = tanpa footer (halaman PIN, D-51: kontak sudah ada di kartu PIN).
+ */
+export function renderPublic(root, contacts, { narrow = false, footer = true } = {}) {
   const main = h('main', { class: `public-main${narrow ? ' public-narrow' : ''}`, id: 'main' });
   root.replaceChildren(
     h('div', { class: 'top-gradient', 'aria-hidden': 'true' }),
     h('div', { class: 'public-page' },
       h('div', { class: 'public-watermark', 'aria-hidden': 'true' }, h('img', { src: 'assets/logo-navy.png', alt: '', class: 'logo-auto' })),
       main,
-      siteFooter(contacts)),
+      footer ? siteFooter(contacts) : null),
   );
   return main;
 }

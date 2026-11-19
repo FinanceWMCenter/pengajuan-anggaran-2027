@@ -93,14 +93,39 @@ export function categoryHelp(c) {
   return h('p', { class: 'cat-help' }, 'Kategori tidak ditemukan? Hubungi Finance WM Center untuk menambahkannya: ', contactLinks(c), '.');
 }
 
+/** Logo WhatsApp Finance (D-47). Tautan wa.me biasa: membuka WhatsApp, tidak ada data yang dikirim. */
+export function waButton(c) {
+  return h('a', {
+    class: 'contact-btn is-wa', href: c.wa_link, target: '_blank', rel: 'noopener noreferrer',
+    'aria-label': `WhatsApp Finance ${c.wa}`, title: `WhatsApp ${c.wa}`,
+  }, icon('whatsapp'));
+}
+
+/**
+ * Logo email (D-47a). Laptop/PC: membuka Gmail di tab baru ("mailto" tidak bereaksi bila tidak ada
+ * aplikasi email terpasang). HP/tablet sentuh: aplikasi email bawaan.
+ */
+export function mailButton(email, { subject, gmail = false } = {}) {
+  const touch = window.matchMedia?.('(pointer: coarse)').matches;
+  const attrs = touch
+    ? { href: `mailto:${email}?subject=${encodeURIComponent(subject)}` }
+    : {
+      href: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}`,
+      target: '_blank', rel: 'noopener noreferrer',
+    };
+  return h('a', { class: `contact-btn ${gmail ? 'is-gmail' : 'is-mail'}`, ...attrs, 'aria-label': `Email Finance ${email}`, title: email },
+    icon(gmail ? 'gmail' : 'mail'));
+}
+
+/** Footer: kontak Finance berupa logo (D-51): WhatsApp, Gmail, email kantor. */
 export function siteFooter(c, cls = 'site-footer') {
-  // Spasi di antara bagian penting: memberi titik potong baris supaya tidak meluber di HP 360px.
-  const sep = () => [' ', h('span', { class: 'sep', 'aria-hidden': 'true' }, '·'), ' '];
+  const subject = 'Pertanyaan - Pengajuan Anggaran 2027';
   return h('footer', { class: cls },
-    'Kendala atau pertanyaan? Hubungi Finance WM Center', sep(),
-    h('a', { href: `mailto:${c.email_1}` }, c.email_1), sep(),
-    h('a', { href: `mailto:${c.email_2}` }, c.email_2), sep(),
-    h('a', { href: c.wa_link, target: '_blank', rel: 'noopener noreferrer', class: 'nowrap' }, `WhatsApp ${c.wa}`));
+    h('span', null, 'Kendala atau pertanyaan? Hubungi Finance WM Center'),
+    h('span', { class: 'pin-contact' },
+      waButton(c),
+      mailButton(c.email_1, { subject, gmail: /@gmail\.com$/i.test(c.email_1) }),
+      mailButton(c.email_2, { subject })));
 }
 
 /** Tabel sederhana dalam kartu. columns: [{label, cls?, render(row)->Node|string}]. customRow(row) -> sel <td> (atau {cells, props}) untuk baris khusus, atau null. */

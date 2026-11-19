@@ -87,11 +87,12 @@
 .home-finance-link { text-align: center; margin-top: 2rem; font-size: 0.875rem; }
 
 .site-footer {
-    position: relative; z-index: 6; border-top: 1px solid var(--border); padding: 1rem;
+    position: relative; z-index: 6; border-top: 1px solid var(--border); padding: 0.625rem 1rem;
     text-align: center; font-size: 0.75rem; color: var(--muted-foreground);
+    display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.375rem 0.75rem;
 }
-.site-footer a { color: var(--secondary); }
-.site-footer .sep { margin: 0 0.125rem; }
+.site-footer .contact-btn { width: 2rem; height: 2rem; }
+.site-footer .contact-btn .ic { width: 16px; height: 16px; }
 .site-footer, .cat-help, .pin-help { overflow-wrap: anywhere; }
 
 /* ---------- Halaman masuk (D-38) + pita nama divisi berjalan (D-39) ----------
