@@ -694,6 +694,127 @@ select test.ok(not has_table_privilege('anon', 'public.program_item_history', 's
            and not has_table_privilege('anon', 'public.notifications', 'update'), 'D-43 tabel riwayat & notifikasi tertutup');
 select test.ok((select bool_and(relrowsecurity) from pg_class where oid in ('public.program_item_history'::regclass, 'public.notifications'::regclass)), 'D-43 RLS aktif di tabel baru');
 
+-- =====================================================================
+-- D-52: RAB Gabungan (Finance mengelompokkan program lintas/satu divisi)
+-- =====================================================================
+select set_config('test.tok_pd52', rpc_login_pin('100003', null) ->> 'token', false);  -- HR-TA (PIN HR-PD sudah diganti oleh tes F-22)
+select set_config('test.tok_fin52', rpc_login_pin('999999', null) ->> 'token', false);
+set role anon;
+select test.expect_denied('select * from public.consolidation_groups limit 1', 'D-52 tabel RAB Gabungan tertutup (baca)');
+select test.expect_denied('select * from public.consolidation_members limit 1', 'D-52 tabel anggota tertutup (baca)');
+select test.expect_denied('select * from public.consolidation_exclusions limit 1', 'D-52 tabel dikeluarkan tertutup (baca)');
+select test.expect_denied($q$insert into public.consolidation_groups (name) values ('Hack')$q$, 'D-52 tabel RAB Gabungan tertutup (tulis)');
+select test.expect_denied($q$select public._rab_summary(1)$q$, 'D-52 pembantu _rab_summary tertutup');
+select test.expect_denied($q$select * from public._rab_programs(1)$q$, 'D-52 pembantu _rab_programs tertutup');
+select test.expect_denied($q$select public._rab_clean_name('abc', null)$q$, 'D-52 pembantu _rab_clean_name tertutup');
+select test.expect_error($q$select rpc_f_rab_list('tebakan')$q$, 'AUTH_EXPIRED', 'D-52 token acak ditolak');
+select test.expect_error(format('select rpc_f_rab_list(%L)', current_setting('test.tok_pd52')), 'FORBIDDEN', 'D-52 sesi divisi tidak bisa membuka daftar');
+select test.expect_error(format('select rpc_f_rab_map(%L)', current_setting('test.tok_pd52')), 'FORBIDDEN', 'D-52 sesi divisi tidak bisa membaca penanda');
+select test.expect_error(format('select rpc_f_rab_save(%L, null, %L, null)', current_setting('test.tok_pd52'), 'Gabungan Divisi'), 'FORBIDDEN', 'D-52 sesi divisi tidak bisa membuat');
+reset role;
+select test.ok((select bool_and(relrowsecurity) from pg_class where oid in ('public.consolidation_groups'::regclass, 'public.consolidation_members'::regclass, 'public.consolidation_exclusions'::regclass)), 'D-52 RLS aktif di tabel baru');
+
+do $$
+declare
+  fin  text := current_setting('test.tok_fin52');
+  pd   text := current_setting('test.tok_pd52');
+  dash jsonb := public._overview_finance();
+  n_prog int := (select count(*) from programs);
+  a uuid; b uuid; c uuid; d uuid;   -- a,b Diajukan (divisi berbeda), c Draft, d Diajukan (untuk gabungan kedua)
+  g1 bigint; g2 bigint;
+  v jsonb;
+  t_expect numeric;
+begin
+  select id into a from programs p where status = 'diajukan' and division_id = (select id from divisions where code = 'business-development') order by id limit 1;
+  select id into b from programs p where status = 'diajukan' and division_id = (select id from divisions where code = 'hr-eb') order by id limit 1;
+  select id into c from programs p where status = 'draft' order by id limit 1;
+  select id into d from programs p where status = 'diajukan' and id not in (a, b) order by id limit 1;
+  perform test.ok(a is not null and b is not null and c is not null and d is not null, 'D-52 persiapan: ada program Diajukan & Draft');
+
+  -- Buat & validasi nama
+  g1 := (rpc_f_rab_save(fin, null, '  Uji   JAKIM 2027 ', 'Kunjungan JAKIM') ->> 'id')::bigint;
+  perform test.ok((select name from consolidation_groups where id = g1) = 'Uji JAKIM 2027', 'D-52 buat RAB Gabungan (spasi dirapikan)');
+  perform test.ok(exists (select 1 from audit_log where action = 'consolidation_create' and entity_id = g1::text), 'D-52 buat tercatat di Log');
+  perform test.expect_error(format('select rpc_f_rab_save(%L, null, %L, null)', fin, 'uji jakim 2027'), 'VALIDATION:name', 'D-52 nama kembar (beda huruf besar/kecil) ditolak');
+  perform test.expect_error(format('select rpc_f_rab_save(%L, null, %L, null)', fin, 'ab'), 'VALIDATION:name', 'D-52 nama < 3 karakter ditolak');
+  perform test.expect_error(format('select rpc_f_rab_save(%L, null, %L, null)', fin, repeat('x', 81)), 'VALIDATION:name', 'D-52 nama > 80 karakter ditolak');
+  perform test.expect_error(format('select rpc_f_rab_save(%L, null, %L, %L)', fin, 'Catatan Panjang', repeat('x', 201)), 'VALIDATION:note', 'D-52 catatan > 200 karakter ditolak');
+  perform test.expect_error(format('select rpc_f_rab_detail(%L, %s, false)', fin, -1), 'NOT_FOUND', 'D-52 gabungan tidak ada');
+
+  -- Tambah anggota (2 Diajukan dari 2 divisi + 1 Draft)
+  v := rpc_f_rab_add(fin, g1, jsonb_build_array(a, b, c, a));
+  perform test.ok((v ->> 'added')::int = 3, 'D-52 tambah 3 program (id dobel diabaikan)');
+  perform test.ok(exists (select 1 from audit_log where action = 'consolidation_add' and entity_id = g1::text), 'D-52 tambah tercatat di Log');
+  perform test.expect_error(format('select rpc_f_rab_add(%L, %s, %L)', fin, g1, '["bukan-uuid"]'), 'VALIDATION:programs', 'D-52 id tidak valid ditolak');
+  perform test.expect_error(format('select rpc_f_rab_add(%L, %s, %L)', fin, g1, '[]'), 'VALIDATION:programs', 'D-52 tanpa program ditolak');
+
+  v := rpc_f_rab_detail(fin, g1, false);
+  select coalesce(sum(i.subtotal), 0) into t_expect from program_items i where i.program_id in (a, b);
+  perform test.ok((v ->> 'total')::numeric = t_expect, 'D-52 total = jumlah subtotal program Diajukan (Draft tidak dihitung)', (v ->> 'total') || ' vs ' || t_expect);
+  perform test.ok((v ->> 'program_count')::int = 2 and (v ->> 'draft_count')::int = 1 and (v ->> 'member_count')::int = 3, 'D-52 jumlah program Diajukan/Draft');
+  perform test.ok((select sum((x ->> 'total')::numeric) from jsonb_array_elements(v -> 'per_divisi') x) = t_expect, 'D-52 jumlah per divisi = total');
+  perform test.ok((select sum((x ->> 'total')::numeric) from jsonb_array_elements(v -> 'per_kategori_baris') x) = t_expect, 'D-52 jumlah per kategori kebutuhan = total');
+  perform test.ok((select sum((x ->> 'total')::numeric) from jsonb_array_elements(v -> 'programs') x where x ->> 'status' = 'diajukan') = t_expect, 'D-52 jumlah total program = total');
+  perform test.ok(jsonb_array_length(v -> 'items') = (select count(*) from program_items where program_id in (a, b, c)), 'D-52 rincian item = semua item anggota');
+  perform test.ok(jsonb_array_length(v -> 'per_divisi') = (select count(distinct division_id) from programs where id in (a, b, c)), 'D-52 per divisi lengkap');
+  perform test.ok((select bool_and((x ->> 'total')::numeric = (select coalesce(sum(subtotal), 0) from program_items where program_id = (x ->> 'id')::uuid)) from jsonb_array_elements(v -> 'programs') x), 'D-52 total setiap program = jumlah subtotalnya');
+  perform test.ok((rpc_f_rab_list(fin) -> 'groups' -> 0 ->> 'total')::numeric = t_expect or exists (select 1 from jsonb_array_elements(rpc_f_rab_list(fin) -> 'groups') x where (x ->> 'id')::bigint = g1 and (x ->> 'total')::numeric = t_expect), 'D-52 daftar menampilkan total yang sama');
+  perform test.ok((rpc_f_rab_map(fin) -> a::text ->> 'id')::bigint = g1 and (rpc_f_rab_map(fin) -> c::text ->> 'name') = 'Uji JAKIM 2027', 'D-52 penanda Konsolidasi untuk anggota');
+
+  -- Dashboard & data program tidak berubah
+  perform test.ok(public._overview_finance() = dash, 'D-52 angka Dashboard Finance tidak berubah');
+  perform test.ok((select count(*) from programs) = n_prog, 'D-52 tidak ada program yang bertambah/berkurang');
+
+  -- Satu program hanya satu gabungan
+  g2 := (rpc_f_rab_save(fin, null, 'Uji Seragam 2027', null) ->> 'id')::bigint;
+  perform test.expect_error(format('select rpc_f_rab_add(%L, %s, %L)', fin, g2, jsonb_build_array(d, a)), 'VALIDATION:programs:Program sudah masuk RAB Gabungan lain', 'D-52 program yang sudah di gabungan lain ditolak');
+  perform test.ok(not exists (select 1 from consolidation_members where group_id = g2), 'D-52 penolakan tidak menambah apa pun (semua atau tidak sama sekali)');
+  perform rpc_f_rab_add(fin, g2, jsonb_build_array(d));
+  perform test.ok(exists (select 1 from jsonb_array_elements(rpc_f_rab_candidates(fin, g2)) x where (x ->> 'id')::uuid = a and (x -> 'other_group' ->> 'id')::bigint = g1), 'D-52 pop-up menandai program milik gabungan lain');
+  perform test.ok(not exists (select 1 from jsonb_array_elements(rpc_f_rab_candidates(fin, g2)) x where (x ->> 'id')::uuid = d), 'D-52 pop-up tidak memuat anggota sendiri');
+  perform test.ok(jsonb_array_length(rpc_f_rab_candidates(fin, g2)) = n_prog - 1, 'D-52 pop-up memuat semua program lain');
+
+  -- Keluarkan & masukkan lagi
+  perform rpc_f_rab_remove(fin, g1, b::text);
+  v := rpc_f_rab_detail(fin, g1, false);
+  perform test.ok((v ->> 'program_count')::int = 1 and exists (select 1 from jsonb_array_elements(v -> 'excluded') x where (x ->> 'id')::uuid = b), 'D-52 keluarkan: pindah ke "bukan bagian gabungan ini"');
+  perform test.ok(exists (select 1 from programs where id = b), 'D-52 program yang dikeluarkan tidak dihapus');
+  perform test.ok((v ->> 'total')::numeric = (select coalesce(sum(subtotal), 0) from program_items where program_id = a), 'D-52 total menyesuaikan setelah dikeluarkan');
+  perform test.ok(exists (select 1 from audit_log where action = 'consolidation_remove' and entity_id = g1::text and actor_role = 'finance'), 'D-52 keluarkan tercatat di Log');
+  perform test.ok((select (x ->> 'excluded')::boolean from jsonb_array_elements(rpc_f_rab_candidates(fin, g1)) x where (x ->> 'id')::uuid = b), 'D-52 pop-up menandai "pernah dikeluarkan"');
+  perform test.expect_error(format('select rpc_f_rab_remove(%L, %s, %L)', fin, g1, b), 'NOT_FOUND', 'D-52 keluarkan program yang bukan anggota ditolak');
+  perform rpc_f_rab_add(fin, g1, jsonb_build_array(b));
+  perform test.ok(not exists (select 1 from consolidation_exclusions where group_id = g1 and program_id = b) and (rpc_f_rab_detail(fin, g1, false) ->> 'total')::numeric = t_expect, 'D-52 masukkan lagi: total kembali');
+  perform test.ok(public._overview_finance() = dash, 'D-52 Dashboard tetap sama setelah keluarkan/masukkan');
+
+  -- Ubah nama, export
+  perform rpc_f_rab_save(fin, g1, 'Uji JAKIM 2027 (Maret)', 'Kunjungan JAKIM, Maret');
+  perform test.ok(exists (select 1 from audit_log where action = 'consolidation_update' and entity_id = g1::text and (old_data ->> 'group_name') = 'Uji JAKIM 2027'), 'D-52 ubah nama tercatat (nama lama tersimpan)');
+  perform test.expect_error(format('select rpc_f_rab_save(%L, %s, %L, null)', fin, g1, 'UJI SERAGAM 2027'), 'VALIDATION:name', 'D-52 ubah nama ke nama gabungan lain ditolak');
+  perform rpc_f_rab_detail(fin, g1, true);
+  perform test.ok(exists (select 1 from audit_log where action = 'export' and entity_type = 'consolidation' and entity_id = g1::text), 'D-52 unduh Excel tercatat di Log');
+
+  -- Program anggota dihapus -> otomatis keluar + Log sistem
+  v := rpc_save_program(pd, test.prog(null, jsonb_build_array(test.it('Item Gabungan', 2, 1000)), null, true, 'Uji Anggota Dihapus'));
+  perform rpc_f_rab_add(fin, g1, jsonb_build_array(v ->> 'id'));
+  perform rpc_delete_program(pd, v ->> 'id', null);
+  perform test.ok(not exists (select 1 from consolidation_members where program_id = (v ->> 'id')::uuid), 'D-52 program dihapus otomatis keluar dari gabungan');
+  perform test.ok(exists (select 1 from audit_log where action = 'consolidation_remove' and actor_role = 'system' and old_data ->> 'nama_program' = 'Uji Anggota Dihapus'), 'D-52 penghapusan anggota tercatat di Log');
+  perform test.ok((rpc_f_rab_detail(fin, g1, false) ->> 'total')::numeric = t_expect, 'D-52 total kembali setelah anggota dihapus');
+
+  -- Hapus gabungan: program tetap ada
+  perform rpc_f_rab_delete(fin, g1);
+  perform test.ok(not exists (select 1 from consolidation_groups where id = g1) and not exists (select 1 from consolidation_members where group_id = g1), 'D-52 hapus RAB Gabungan');
+  perform test.ok(exists (select 1 from programs where id = a) and exists (select 1 from programs where id = b) and exists (select 1 from programs where id = c), 'D-52 hapus RAB Gabungan tidak menghapus program');
+  perform test.ok(exists (select 1 from audit_log where action = 'consolidation_delete' and entity_id = g1::text and jsonb_array_length(old_data -> 'programs') = 3), 'D-52 hapus tercatat beserta daftar programnya');
+  perform test.expect_error(format('select rpc_f_rab_delete(%L, %s)', fin, g1), 'NOT_FOUND', 'D-52 hapus gabungan yang sudah tidak ada');
+  perform rpc_f_rab_delete(fin, g2);
+  perform test.ok(public._overview_finance() = dash, 'D-52 Dashboard tetap sama di akhir');
+
+  delete from audit_log where entity_type = 'consolidation' or (action = 'delete' and old_data ->> 'nama_program' = 'Uji Anggota Dihapus');
+  delete from notifications where program_name = 'Uji Anggota Dihapus';
+end $$;
+
 -- Bersihkan alat uji dan kembalikan PIN seperti sebelum tes
 update divisions d set pin_hash = b.pin_hash, pin_updated_at = b.pin_updated_at from _pin_backup b where b.id = d.id;
 delete from app_settings where key = 'finance_pin_hash' and not exists (select 1 from _master_backup);

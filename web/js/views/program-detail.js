@@ -5,7 +5,7 @@ import { h, icon, formatRupiah, formatNumber, formatDate, formatDateTime, monthN
 import { rpc, errorMessage, ApiError } from '../api.js';
 import { getYear, getMaster } from '../store.js';
 import { refresh, navigate, setLeaveGuard, onCleanup } from '../router.js';
-import { pageHead, statusBadge, revisedBadge, dataTable, errorBlock, loadingBlock, flash, setLoading } from '../ui/components.js';
+import { pageHead, statusBadge, revisedBadge, consolidationBadge, dataTable, errorBlock, loadingBlock, flash, setLoading } from '../ui/components.js';
 import { confirmDialog, openDialog } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { deleteProgram } from './program-actions.js';
@@ -20,12 +20,14 @@ export async function programDetailView(main, ctx) {
   let year;
   let history;
   let master = null;
+  let rabMap = {};
   const isFinance = ctx.session.role === 'finance';
   try {
-    [p, year, history] = await Promise.all([
+    [p, year, history, rabMap] = await Promise.all([
       rpc('rpc_get_program', { p_id: id }),
       getYear(),
       rpc('rpc_program_item_history', { p_id: id }).catch(() => null), // detail tetap tampil walau riwayat gagal dimuat
+      isFinance ? rpc('rpc_f_rab_map').catch(() => ({})) : {}, // penanda Konsolidasi (D-52), hanya Finance
     ]);
     if (isFinance && p.status === 'diajukan') master = await getMaster({ refresh: true });
   } catch (e) {
@@ -227,7 +229,7 @@ export async function programDetailView(main, ctx) {
       return h('div', { class: 'removed-item', 'data-item': itemId }, h('b', null, (last.old_data || last.new_data || {}).uraian || '-'), historyList(entries));
     })) : null;
 
-  const badge = [statusBadge(p.status), revisedItems.size ? revisedBadge() : null];
+  const badge = [statusBadge(p.status), revisedItems.size ? revisedBadge() : null, rabMap[p.id] ? consolidationBadge(rabMap[p.id]) : null];
   drawItems();
   main.replaceChildren(...[
     pageHead({ title: p.nama_program, subtitle: `${p.division_name} · ${monthName(p.periode_bulan, year)}`, actions, badge }),

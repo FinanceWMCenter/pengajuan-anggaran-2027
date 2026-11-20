@@ -22,6 +22,7 @@ import { financeDivisionsView } from './views/finance-divisions.js';
 import { financeMasterView } from './views/finance-master.js';
 import { financeLogView } from './views/finance-log.js';
 import { financeExportView } from './views/finance-export.js';
+import { financeRabListView, financeRabDetailView } from './views/finance-rab.js';
 
 const root = document.getElementById('app');
 
@@ -39,6 +40,8 @@ addRoute('/d/:code/p/:id/edit', { access: 'division', nav: 'summary', title: 'Ub
 addRoute('/finance/overview', { access: 'finance', nav: 'f-overview', title: 'Dashboard', view: financeOverviewView });
 addRoute('/finance/programs', { access: 'finance', nav: 'f-programs', title: 'Semua Program', view: financeProgramsView });
 addRoute('/finance/p/:id', { access: 'finance', nav: 'f-programs', title: 'Detail Program', view: programDetailView });
+addRoute('/finance/rab', { access: 'finance', nav: 'f-rab', title: 'RAB Gabungan', view: financeRabListView });
+addRoute('/finance/rab/:id', { access: 'finance', nav: 'f-rab', title: 'RAB Gabungan', view: financeRabDetailView });
 addRoute('/finance/divisions', { access: 'finance', nav: 'f-divisions', title: 'Divisi & PIN', view: financeDivisionsView });
 addRoute('/finance/master', { access: 'finance', nav: 'f-master', title: 'Kategori', view: financeMasterView });
 addRoute('/finance/log', { access: 'finance', nav: 'f-log', title: 'Log Riwayat', view: financeLogView });
@@ -184,6 +187,7 @@ function financeShell(ctx, route) {
     nav: [
       { key: 'f-overview', label: 'Dashboard', icon: 'overview', href: '#/finance/overview' },
       { key: 'f-programs', label: 'Semua Program', icon: 'list', href: '#/finance/programs' },
+      { key: 'f-rab', label: 'RAB Gabungan', icon: 'layers', href: '#/finance/rab' },
       { group: 'Pengaturan' },
       { key: 'f-divisions', label: 'Divisi & PIN', icon: 'key', href: '#/finance/divisions' },
       { key: 'f-master', label: 'Kategori', icon: 'tag', href: '#/finance/master' },

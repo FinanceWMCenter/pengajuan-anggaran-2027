@@ -197,6 +197,62 @@ export async function parseImportFile(file, itemCategories) {
   return { rows, errors: [], truncated };
 }
 
+/**
+ * Unduh RAB Gabungan (D-52) sebagai .xlsx: lembar "Ringkasan" (program per divisi + total) dan
+ * "Rincian Item" (semua baris kebutuhan). Angka dari database; teks aman dari formula injection.
+ * @param {object} d hasil rpc_f_rab_detail
+ * @param {(n:number)=>string} bulan nama bulan
+ */
+export async function exportRab(d, bulan) {
+  const XLSX = await loadXLSX();
+  const S = (v) => sanitizeCell(v ?? '');
+  const STATUS = { diajukan: 'Diajukan', draft: 'Draft (tidak dihitung)' };
+  const progById = new Map(d.programs.map((p) => [p.id, p]));
+  const money = (ws, cols, fromRow) => {
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let r = fromRow; r <= range.e.r; r += 1) {
+      for (const c of cols) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c })];
+        if (cell && cell.t === 'n') cell.z = '#,##0';
+      }
+    }
+  };
+
+  const head1 = ['Divisi', 'Nama Program', 'Bulan', 'Kategori Program', 'PIC', 'Status', 'Jumlah Baris', 'Total (Rp)'];
+  const rows1 = d.programs.map((p) => [S(p.division_name), S(p.nama_program), bulan(p.periode_bulan), S(p.program_category_name), S(p.pic_nama), STATUS[p.status] || p.status, Number(p.item_count), Number(p.total)]);
+  const sheet1 = XLSX.utils.aoa_to_sheet([
+    ['RAB Gabungan', S(d.name)],
+    ['Catatan', S(d.note || '-')],
+    ['Total (hanya program Diajukan)', Number(d.total)],
+    ['Jumlah program', `${d.program_count} Diajukan${d.draft_count ? `, ${d.draft_count} draft tidak dihitung` : ''}`],
+    ['Diunduh', new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB'],
+    [],
+    head1,
+    ...rows1,
+    ['TOTAL DIAJUKAN', '', '', '', '', '', '', Number(d.total)],
+  ]);
+  money(sheet1, [1], 2);
+  money(sheet1, [7], 7);
+  sheet1['!cols'] = [{ wch: 30 }, { wch: 40 }, { wch: 11 }, { wch: 26 }, { wch: 20 }, { wch: 22 }, { wch: 12 }, { wch: 16 }];
+
+  const head2 = ['Divisi', 'Nama Program', 'Bulan', 'Status', 'No', 'Uraian', 'Kategori Kebutuhan', 'Qty', 'Satuan', 'Harga Satuan (Rp)', 'Subtotal (Rp)', 'Catatan'];
+  const rows2 = d.items.map((i) => {
+    const p = progById.get(i.program_id) || {};
+    return [S(p.division_name), S(p.nama_program), bulan(p.periode_bulan), STATUS[p.status] || p.status, Number(i.urutan), S(i.uraian), S(i.item_category_name || ''),
+      i.qty == null ? '' : Number(i.qty), S(i.satuan || ''), i.harga_satuan == null ? '' : Number(i.harga_satuan), Number(i.subtotal), S(i.catatan || '')];
+  });
+  const sheet2 = XLSX.utils.aoa_to_sheet([head2, ...rows2, ['TOTAL DIAJUKAN', '', '', '', '', '', '', '', '', '', Number(d.total), 'Baris Draft tidak dihitung']]);
+  money(sheet2, [9, 10], 1);
+  sheet2['!cols'] = [{ wch: 26 }, { wch: 36 }, { wch: 11 }, { wch: 20 }, { wch: 5 }, { wch: 36 }, { wch: 24 }, { wch: 7 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 28 }];
+  if (rows2.length) sheet2['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows2.length, c: head2.length - 1 } }) };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheet1, 'Ringkasan');
+  XLSX.utils.book_append_sheet(wb, sheet2, 'Rincian Item');
+  const safeName = String(d.name || 'RAB').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '') || 'RAB';
+  XLSX.writeFile(wb, `RAB_Gabungan_${safeName}.xlsx`, { compression: true });
+}
+
 /** Export baris datar ke .xlsx atau .csv (aman dari formula injection - S-11). */
 export async function exportRows(rows, columns, format, filenameBase) {
   const header = columns.map((c) => c.label);

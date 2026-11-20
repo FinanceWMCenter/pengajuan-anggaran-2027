@@ -3,7 +3,7 @@
 import { h, formatRupiah, formatDate, monthName, MONTHS, normalize } from '../utils.js';
 import { rpc, errorMessage } from '../api.js';
 import { refresh } from '../router.js';
-import { pageHead, statusBadge, revisedBadge, dataTable, errorBlock, loadingBlock, emptyState } from '../ui/components.js';
+import { pageHead, statusBadge, revisedBadge, consolidationBadge, dataTable, errorBlock, loadingBlock, emptyState } from '../ui/components.js';
 import { deleteProgram } from './program-actions.js';
 
 const FILTER_KEY = 'wm-anggaran-filter-finance';
@@ -14,8 +14,12 @@ export async function financeProgramsView(main) {
   main.append(body);
 
   let programs;
+  let rabMap;
   try {
-    programs = await rpc('rpc_f_list_programs');
+    [programs, rabMap] = await Promise.all([
+      rpc('rpc_f_list_programs'),
+      rpc('rpc_f_rab_map').catch(() => ({})), // penanda Konsolidasi (D-52); gagal = daftar tetap tampil tanpa penanda
+    ]);
   } catch (e) {
     body.replaceChildren(errorBlock(errorMessage(e), () => refresh()));
     return;
@@ -61,7 +65,7 @@ export async function financeProgramsView(main) {
       caption: 'Semua program',
       columns: [
         { label: 'Divisi', cls: 'cell-start', render: (p) => p.division_name },
-        { label: 'Nama Program', cls: 'cell-start cell-name', render: (p) => h('a', { href: `#/finance/p/${p.id}` }, p.nama_program) },
+        { label: 'Nama Program', cls: 'cell-start cell-name', render: (p) => [h('a', { href: `#/finance/p/${p.id}` }, p.nama_program), rabMap[p.id] ? h('div', { class: 'item-marks' }, consolidationBadge(rabMap[p.id])) : null] },
         { label: 'Kategori', render: (p) => p.program_category_name },
         { label: 'Bulan', render: (p) => monthName(p.periode_bulan) },
         { label: 'PIC', cls: 'cell-start', render: (p) => p.pic_nama },

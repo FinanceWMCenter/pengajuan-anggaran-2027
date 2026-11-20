@@ -36,15 +36,19 @@ const SHEETS = [
   ['4_riwayat_revisi_item.csv', 'Riwayat Revisi Item'],
   ['5_log_riwayat.csv', 'Log Riwayat'],
   ['6_master_data.csv', 'Master Data'],
+  ['7_rab_gabungan.csv', 'RAB Gabungan', true], // D-52; opsional (database tanpa 05b_rab_gabungan.sql)
 ];
 const NUMERIC = new Set(['Program Diajukan', 'Draft', 'Bulan (angka)', 'Jumlah Baris', 'No', 'Qty', 'Urutan']);
 const isMoney = (h) => /\(Rp\)$/.test(h);
 
 const wb = XLSX.utils.book_new();
 const counts = {};
-for (const [file, name] of SHEETS) {
+for (const [file, name, optional] of SHEETS) {
   const p = path.join(csvDir, file);
-  if (!fs.existsSync(p)) { console.error(`File tidak ada: ${p}`); process.exit(1); }
+  if (!fs.existsSync(p)) {
+    if (optional) continue;
+    console.error(`File tidak ada: ${p}`); process.exit(1);
+  }
   const [head, ...body] = parseCsv(fs.readFileSync(p, 'utf8').replace(/^﻿/, ''));
   counts[name] = body.length;
   const ws = {};
@@ -86,6 +90,7 @@ const info = XLSX.utils.aoa_to_sheet([
   ['Riwayat Revisi Item', 'Perubahan per item setelah program diajukan (siapa, kapan, apa, alasan)', counts['Riwayat Revisi Item']],
   ['Log Riwayat', 'Semua aksi tercatat (simpan, submit, hapus, revisi, ganti PIN, export)', counts['Log Riwayat']],
   ['Master Data', 'Kategori program, kategori kebutuhan, daftar divisi', counts['Master Data']],
+  ...(counts['RAB Gabungan'] !== undefined ? [['RAB Gabungan', 'Kelompok program per kegiatan buatan Finance (tidak mengubah total Dashboard)', counts['RAB Gabungan']]] : []),
   [],
   ['Catatan', 'Total program = jumlah subtotal barisnya. Total Dashboard hanya menghitung status Diajukan.'],
   ['Catatan', 'Teks yang diawali = + - @ diberi tanda \' di depan supaya tidak dijalankan sebagai rumus.'],

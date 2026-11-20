@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 97_reset_pengajuan.sql  -  Mengosongkan SEMUA pengajuan (mulai dari 0), PIN TETAP
 --
--- Dihapus : semua program (draft + diajukan) beserta baris kebutuhannya, riwayat revisi item,
+-- Dihapus : semua program (draft + diajukan) beserta baris kebutuhannya, RAB Gabungan, riwayat revisi item,
 --           notifikasi, dan catatan log yang berkaitan dengan program/export (sisa uji coba).
 -- TETAP   : PIN divisi + Master PIN Finance, divisi, kategori (master data), pengaturan, sesi login,
 --           dan log PIN/kategori (pin_reset, master_pin_change, category_change).
@@ -27,6 +27,9 @@ begin
   select count(*) into n_log from public.audit_log where action not in ('pin_reset', 'master_pin_change', 'category_change');
 
   delete from public.programs;               -- baris kebutuhan ikut terhapus (cascade)
+  if to_regclass('public.consolidation_groups') is not null then
+    delete from public.consolidation_groups;   -- RAB Gabungan (D-52) ikut kosong
+  end if;
   delete from public.program_item_history;
   delete from public.notifications;
   delete from public.audit_log where action not in ('pin_reset', 'master_pin_change', 'category_change');

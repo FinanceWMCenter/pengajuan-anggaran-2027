@@ -70,6 +70,17 @@ begin
   if to_regprocedure('public.rpc_overview_division_detail(text, text)') is not null then
     grant execute on function public.rpc_overview_division_detail(text, text) to anon;  -- D-45
   end if;
+  -- RAB Gabungan (05b_rab_gabungan.sql, D-52)
+  if to_regprocedure('public.rpc_f_rab_list(text)') is not null then
+    grant execute on function public.rpc_f_rab_list(text) to anon;
+    grant execute on function public.rpc_f_rab_detail(text, bigint, boolean) to anon;
+    grant execute on function public.rpc_f_rab_save(text, bigint, text, text) to anon;
+    grant execute on function public.rpc_f_rab_delete(text, bigint) to anon;
+    grant execute on function public.rpc_f_rab_add(text, bigint, jsonb) to anon;
+    grant execute on function public.rpc_f_rab_remove(text, bigint, text) to anon;
+    grant execute on function public.rpc_f_rab_candidates(text, bigint) to anon;
+    grant execute on function public.rpc_f_rab_map(text) to anon;
+  end if;
 end;
 $$;
 -- Fungsi berawalan "_" (pembantu internal) sengaja TIDAK diberi izin.

@@ -33,7 +33,7 @@ Panduan ini untuk Anda (bukan programmer). Claude di VS Code akan menulis kodeny
 **Di Supabase (DEV dulu):**
 1. Buka project `anggaran-2027-dev` -> menu kiri **SQL Editor** -> **New query**.
 2. Di VS Code buka file `db/01_schema.sql`, tekan `Ctrl+A` lalu `Ctrl+C`. Di SQL Editor tempel (`Ctrl+V`) lalu klik **Run**. Harus muncul "Success".
-3. Ulangi langkah 2 (query baru setiap file) berurutan untuk: `02_seed_master.sql` -> `03_functions.sql` -> `04_security.sql` -> `05_overview.sql`.
+3. Ulangi langkah 2 (query baru setiap file) berurutan untuk: `02_seed_master.sql` -> `03_functions.sql` -> `04_security.sql` -> `05_overview.sql` -> `05b_rab_gabungan.sql`.
 4. **PIN (DEV dan PROD):** jalankan `06_bootstrap.sql`. Database membuat PIN **acak 6 digit** untuk Finance dan tiap divisi (semuanya berbeda, karena PIN menentukan siapa yang masuk - D-38), ditampilkan **satu kali** di tabel hasil di bawah editor. Salin semuanya ke password manager sekarang juga. (Bila dijalankan lagi, PIN yang sudah ada tidak berubah.) Master PIN bisa diganti nanti di halaman Finance -> Divisi & PIN.
 4b. **Hanya DEV:** jalankan `99_test_seed.sql` untuk data demo realistis (158 program, semua divisi terisi Januari-Desember, sebagian draft). File ini tidak mengubah PIN.
 5. Cek menu **Table Editor**: ada 10 tabel, masing-masing berlabel "RLS enabled".
@@ -54,6 +54,12 @@ Khusus perubahan D-38 (PIN Finance 8 -> 6 digit): jalankan `07_reset_semua_pin.s
 1. Claude menambahkan divisi di `db/02_seed_master.sql` (dan contoh datanya di `99_test_seed.sql` untuk DEV).
 2. Di SQL Editor jalankan berurutan: `02_seed_master.sql` (hanya menambah yang belum ada) -> `06_bootstrap.sql` (hanya membuat PIN untuk divisi baru; PIN lain tidak berubah) -> (DEV saja) `99_test_seed.sql`. Bila 99 menolak karena DEV sudah berisi program hasil uji coba, minta Claude membuat skrip TAMBAH khusus divisi baru (hanya menambah, tidak menghapus, tidak dobel) - contoh: 99b untuk Project Expansion (2026-11-10, dipakai sekali lalu dihapus dari repo).
 3. Simpan PIN divisi baru dari hasil 06, lalu bagikan ke PIC-nya. Web otomatis menampilkan divisi baru (pita, Overview, export) tanpa perlu deploy.
+
+## D1d. Memasang RAB Gabungan di database yang sudah berjalan (D-52)
+1. Backup dulu (bagian I).
+2. SQL Editor -> New query -> tempel seluruh isi `db/05b_rab_gabungan.sql` -> Run -> harus "Success". Aman diulang; hanya menambah tabel & fungsi baru, data program tidak disentuh.
+3. Jalankan cek keamanan (D2). Hasil harus SEMUA LULUS (termasuk cek D-52).
+4. Baru setelah itu web versi baru dikirim (menu RAB Gabungan). Urutan ini penting: web baru memanggil fungsi dari file 05b.
 
 ## D2. Uji keamanan di Supabase (Fase 3 - WAJIB sebelum data asli masuk)
 1. Siapkan Project URL dan anon/publishable key DEV (Project Settings -> API / Data API).

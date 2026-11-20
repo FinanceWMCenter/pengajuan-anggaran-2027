@@ -21,6 +21,9 @@ begin
 
   select count(*) into n_prog from public.programs;
   delete from public.programs;          -- baris kebutuhan ikut terhapus (cascade)
+  if to_regclass('public.consolidation_groups') is not null then
+    delete from public.consolidation_groups;   -- RAB Gabungan (D-52)
+  end if;
   delete from public.audit_log;
   delete from public.program_item_history;
   delete from public.notifications;

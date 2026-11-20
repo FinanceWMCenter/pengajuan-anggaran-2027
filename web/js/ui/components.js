@@ -13,6 +13,11 @@ export function revisedBadge() {
   return h('span', { class: 'wm-badge is-warning' }, 'Direvisi Finance');
 }
 
+/** Penanda program yang masuk RAB Gabungan (D-52, hanya Finance). g = { id, name }. */
+export function consolidationBadge(g) {
+  return h('a', { class: 'wm-badge is-kons', href: `#/finance/rab/${g.id}`, title: `Buka RAB Gabungan ${g.name}` }, `Konsolidasi · ${g.name}`);
+}
+
 export function activeBadge(isActive) {
   return isActive
     ? h('span', { class: 'wm-badge is-good' }, 'Aktif')

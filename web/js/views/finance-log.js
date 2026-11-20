@@ -10,6 +10,8 @@ import { changeLines, itemLine } from './program-revision.js';
 const ACTIONS = {
   create: 'Buat draft', update: 'Ubah', submit: 'Submit', revise: 'Revisi Finance', delete: 'Hapus', pin_reset: 'Atur/reset PIN',
   master_pin_change: 'Ganti PIN Finance', category_change: 'Ubah kategori', export: 'Export',
+  consolidation_create: 'Buat RAB Gabungan', consolidation_update: 'Ubah RAB Gabungan', consolidation_delete: 'Hapus RAB Gabungan',
+  consolidation_add: 'Tambah ke RAB Gabungan', consolidation_remove: 'Keluarkan dari RAB Gabungan',
 };
 const ROLES = { division: 'Divisi', finance: 'Finance', system: 'Sistem' };
 
@@ -45,7 +47,7 @@ export async function financeLogView(main) {
         { label: 'Waktu (WIB)', cls: 'nowrap', render: (r) => formatDateTime(r.occurred_at) },
         { label: 'Aktor', cls: 'cell-start', render: (r) => [ROLES[r.actor_role] || r.actor_role, r.actor_name ? h('div', { class: 'xsmall muted' }, r.actor_name) : null] },
         { label: 'Divisi', cls: 'cell-start', render: (r) => r.division_name || '-' },
-        { label: 'Aksi', render: (r) => h('span', { class: `wm-badge${r.action === 'delete' ? ' is-critical' : r.action === 'submit' ? ' is-good' : r.action === 'revise' ? ' is-warning' : ''}` }, ACTIONS[r.action] || r.action) },
+        { label: 'Aksi', render: (r) => h('span', { class: `wm-badge${r.action === 'delete' || r.action === 'consolidation_delete' ? ' is-critical' : r.action === 'submit' ? ' is-good' : r.action === 'revise' || r.entity_type === 'consolidation' ? ' is-warning' : ''}` }, ACTIONS[r.action] || r.action) },
         { label: 'Data', cls: 'cell-start', render: (r) => describe(r) },
         { label: 'Alasan', cls: 'cell-start', render: (r) => r.reason || '' },
         { label: 'Detail', render: (r) => h('button', { type: 'button', class: 'wm-btn-text', onclick: () => showDetail(r) }, 'Lihat') },
@@ -62,10 +64,41 @@ function describe(r) {
   const p = r.new_data || r.old_data;
   if (r.entity_type === 'program' && p) return `${p.nama_program} · ${monthName(p.periode_bulan)} · ${formatRupiah(p.total)}`;
   if (r.entity_type === 'category' && p) return `${p.kind === 'program' ? 'Kategori program' : 'Kategori baris'}: ${p.name} (${p.is_active ? 'aktif' : 'nonaktif'})`;
+  if (r.entity_type === 'consolidation' && p) return rabDescribe(r, p);
   if (r.entity_type === 'export' && r.new_data) return `Status: ${r.new_data.status}, ${r.new_data.row_count} baris`;
   if (r.entity_type === 'division') return 'PIN divisi diatur ulang';
   if (r.entity_type === 'settings') return 'PIN Finance diganti';
   return r.entity_id || '';
+}
+
+/** Ringkasan satu baris untuk entri RAB Gabungan (D-52). */
+function rabDescribe(r, p) {
+  const g = `RAB Gabungan "${p.group_name}"`;
+  if (r.action === 'export') return `${g} · ${p.program_count} program, ${p.row_count} baris`;
+  if (r.action === 'consolidation_add') return `${g} · +${(p.programs || []).length} program`;
+  if (r.action === 'consolidation_remove') return `${g} · ${p.nama_program}${r.actor_role === 'system' ? ' (program dihapus)' : ''}`;
+  if (r.action === 'consolidation_delete') return `${g} · ${p.program_count} program dilepas`;
+  if (r.action === 'consolidation_update' && r.old_data && r.new_data && r.old_data.group_name !== r.new_data.group_name) return `"${r.old_data.group_name}" → "${r.new_data.group_name}"`;
+  return g;
+}
+
+/** Isi detail entri RAB Gabungan (D-52). */
+function rabBody(r) {
+  const o = r.old_data || {};
+  const n = r.new_data || {};
+  const p = r.new_data || r.old_data || {};
+  const list = (programs) => h('ul', { class: 'history-list' }, programs.map((x) => h('li', null, h('b', null, x.nama_program), x.division_name ? ` · ${x.division_name}` : '', x.periode_bulan ? ` · ${monthName(x.periode_bulan)}` : '')));
+  const lines = [h('div', null, 'RAB Gabungan: ', h('b', null, p.group_name))];
+  if (r.action === 'consolidation_add') lines.push(section(`Program ditambahkan (${(n.programs || []).length})`, list(n.programs || [])));
+  if (r.action === 'consolidation_remove') lines.push(section('Program dikeluarkan', list([o])), h('p', { class: 'muted' }, r.actor_role === 'system' ? 'Program dihapus, sehingga otomatis keluar dari RAB Gabungan.' : 'Program hanya dilepas dari gabungan, tidak dihapus.'));
+  if (r.action === 'consolidation_delete') lines.push(section(`Program yang dilepas (${(o.programs || []).length})`, (o.programs || []).length ? list(o.programs) : h('p', { class: 'muted' }, 'Tidak ada program.')), h('p', { class: 'muted' }, 'Program tetap ada di divisi masing-masing.'));
+  if (r.action === 'consolidation_update') {
+    if (o.group_name !== n.group_name) lines.push(h('div', { class: 'history-change' }, h('span', { class: 'muted' }, 'Nama: '), o.group_name, ' → ', h('b', null, n.group_name)));
+    if ((o.note || '') !== (n.note || '')) lines.push(h('div', { class: 'history-change' }, h('span', { class: 'muted' }, 'Catatan: '), o.note || '-', ' → ', h('b', null, n.note || '-')));
+  }
+  if (r.action === 'consolidation_create' && n.note) lines.push(h('div', null, `Catatan: ${n.note}`));
+  if (r.action === 'export') lines.push(h('div', null, `Unduh Excel: ${p.program_count} program, ${p.row_count} baris, total ${formatRupiah(p.total)}`));
+  return lines;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +161,7 @@ function programBody(r) {
 }
 
 function otherBody(r) {
+  if (r.entity_type === 'consolidation') return rabBody(r);
   const o = r.old_data || {};
   const n = r.new_data || {};
   if (r.entity_type === 'category') {
