@@ -626,19 +626,32 @@ body.has-modal { overflow: hidden; }
 .chart-hl { fill: var(--accent); opacity: 0; transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s; }
 .chart-hl.is-on { opacity: 1; }
 .chart-base { stroke: var(--viz-grid); stroke-width: 1; }
-.chart-bar { fill: var(--viz-1); transition: fill 0.2s; }
-.chart-bar.is-dim { fill: var(--viz-neutral); }
-.chart-val { font-size: 12.5px; font-weight: 600; fill: var(--foreground); transition: opacity 0.2s; }
-.chart-pct { font-size: 12.5px; font-weight: 600; fill: var(--viz-2); transition: opacity 0.2s; }
+/* Per bulan (D-54): batang bergradasi, garis ungu tanpa titik (titik hanya di bulan yang ditunjuk), garis bantu tipis */
+.chart-bar-top { stop-color: var(--viz-1); }
+.chart-bar-bottom { stop-color: color-mix(in srgb, var(--viz-1) 55%, var(--card)); }
+.chart-area-top { stop-color: var(--viz-line); stop-opacity: 0.2; }
+.chart-area-bottom { stop-color: var(--viz-line); stop-opacity: 0; }
+.chart-bar { transition: opacity 0.2s; }
+.chart-bar.is-dim { opacity: 0.3; }
+.chart-col { fill: var(--accent); opacity: 0; transition: opacity 0.15s; }
+.chart-col.is-on { opacity: 1; }
+.chart-grid { stroke: var(--viz-grid); stroke-width: 1; stroke-dasharray: 3 4; }
+.chart-grid-label { font-size: 10px; fill: var(--muted-foreground); }
+.chart-val { font-size: 11.5px; font-weight: 500; fill: var(--muted-foreground); transition: opacity 0.2s; }
+.chart-val.is-top { font-weight: 700; fill: var(--foreground); }
+.chart-pct { font-size: 11px; font-weight: 500; fill: var(--muted-foreground); transition: opacity 0.2s; }
+.chart-pct.is-on { font-size: 12px; font-weight: 700; fill: var(--viz-line); }
 .chart-axis { font-size: 12.5px; fill: var(--viz-ink); }
-.chart-line2 { fill: none; stroke: var(--viz-2); stroke-width: 2.5; stroke-linejoin: round; }
-.chart-ring { fill: var(--card); stroke: var(--viz-2); stroke-width: 2.25; transition: opacity 0.2s; }
-.chart-val.is-dim, .chart-pct.is-dim, .chart-ring.is-dim { opacity: 0.35; }
+.chart-axis.is-on { font-weight: 700; fill: var(--foreground); }
+.chart-line2 { fill: none; stroke: var(--viz-line); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.chart-ring { fill: var(--card); stroke: var(--viz-line); stroke-width: 2.5; opacity: 0; transition: opacity 0.15s; }
+.chart-ring.is-on { opacity: 1; }
+.chart-val.is-dim, .chart-pct.is-dim { opacity: 0.35; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 0.375rem 1rem; font-size: 0.75rem; color: var(--muted-foreground); }
 .chart-legend span { display: inline-flex; align-items: center; gap: 0.375rem; }
 .chart-legend i { width: 12px; height: 12px; border-radius: var(--radius-sm); display: inline-block; }
-.chart-legend i.is-bar { background: var(--viz-1); }
-.chart-legend i.is-line { background: var(--viz-2); }
+.chart-legend i.is-bar { background: linear-gradient(var(--viz-1), color-mix(in srgb, var(--viz-1) 55%, var(--card))); }
+.chart-legend i.is-line { background: var(--viz-line); }
 .chart-tabs { position: relative; display: flex; flex-wrap: wrap; gap: 2px; }
 .chart-tab { position: relative; z-index: 1; font: inherit; font-size: 0.8125rem; font-weight: 500; border: 0; border-radius: var(--radius-lg); padding: 0.3125rem 0.75rem; background: transparent; color: var(--muted-foreground); cursor: pointer; transition: color 0.2s; }
 .chart-tab[aria-pressed="true"] { color: var(--primary); font-weight: 600; }

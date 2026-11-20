@@ -218,24 +218,12 @@ function drawIn(line, area) {
   onCleanup(() => clearTimeout(t));
 }
 
-function growAttr(node, attr, from, to, delay) {
-  if (reduceMotion()) return;
-  node.setAttribute(attr, from);
-  const t0 = performance.now() + delay;
-  const step = (now) => {
-    const k = Math.max(0, Math.min(1, (now - t0) / 520)); const e = 1 - (1 - k) ** 3;
-    node.setAttribute(attr, from + (to - from) * e);
-    if (k < 1 && node.isConnected !== false) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
 const moveTo = (node, x, y = 0) => { node.style.transform = `translate(${x}px, ${y}px)`; };
-const gradient = (svg) => {
+const gradient = (svg, top = 'chart-stop-top', bottom = 'chart-stop-bottom') => {
   const id = `chart-grad-${(uid += 1)}`;
   const g = svgEl('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, svgEl('defs', {}, svg));
-  svgEl('stop', { offset: '0%', class: 'chart-stop-top' }, g);
-  svgEl('stop', { offset: '100%', class: 'chart-stop-bottom' }, g);
+  svgEl('stop', { offset: '0%', class: top }, g);
+  svgEl('stop', { offset: '100%', class: bottom }, g);
   return `url(#${id})`;
 };
 const empty = () => h('p', { class: 'chart-empty' }, 'Belum ada program Diajukan.');
@@ -293,8 +281,39 @@ export function cumulativeChart({ monthly, counts, total, count, year, onPick })
 }
 
 // ---------------------------------------------------------------------------
-// 2) Per bulan: batang + angka, garis % (pita terpisah, skala sendiri)
+// 2) Per bulan: batang + angka, garis % (pita terpisah, skala sendiri).
+//    Gaya D-54: batang bergradasi bersudut atas membulat, garis ungu halus tanpa titik
+//    (titik hanya di bulan yang ditunjuk), garis bantu tipis pada angka bulat.
 // ---------------------------------------------------------------------------
+/** Jarak garis bantu yang bulat (1 / 2 / 2,5 / 5 × 10^n), kira-kira 3 garis sampai batang tertinggi. */
+export function niceStep(max) {
+  if (!(max > 0)) return 0;
+  const raw = max / 3;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  const f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+
+/** Batang dengan sudut atas membulat; bawahnya tetap rata di garis dasar. */
+function barPath(x, y, w, hgt, r) {
+  if (!(hgt > 0)) return '';
+  const rr = Math.min(r, w / 2, hgt);
+  return `M${x},${y + hgt}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + hgt}Z`;
+}
+
+function growBar(node, x, w, base, hgt, delay) {
+  if (reduceMotion() || !(hgt > 0)) return;
+  node.setAttribute('d', '');
+  const t0 = performance.now() + delay;
+  const step = (now) => {
+    const k = Math.max(0, Math.min(1, (now - t0) / 520)); const e = 1 - (1 - k) ** 3;
+    const hh = hgt * e;
+    node.setAttribute('d', barPath(x, base - hh, w, hh, 6));
+    if (k < 1) requestAnimationFrame(step); // langkah terakhir (k = 1) selalu tinggi penuh yang tepat
+  };
+  requestAnimationFrame(step);
+}
+
 /**
  * @param {{rows:Array<{bulan:number,count:number,total:number,pct:number}>, total:number, count:number, year:number,
  *          onMonth:(row)=>void, onQuarter:(q:number)=>void}} o  rows = per_bulan dari database
@@ -305,9 +324,9 @@ export function monthlyChart({ rows, total, count, year, onMonth, onQuarter }) {
   const vals = rows.map((r) => Number(r.total) || 0);
   const max = Math.max(...vals);
   const top = vals.indexOf(max);
-  const W = 780; const H = 330; const PX = 16;
-  const band = (W - 2 * PX) / 12; const bw = band * 0.52;
-  const xOf = (i) => PX + band * i + band / 2;
+  const W = 780; const H = 330; const PL = 16; const PR = 40; // kanan: ruang label garis bantu
+  const band = (W - PL - PR) / 12; const bw = band * 0.56;
+  const xOf = (i) => PL + band * i + band / 2;
   const L0 = 34; const L1 = 96; const B0 = 132; const B1 = 296;
   const pcts = rows.map((r) => Number(r.pct) || 0);
   const pmax = Math.max(...pcts); const pmin = Math.min(...pcts);
@@ -315,18 +334,31 @@ export function monthlyChart({ rows, total, count, year, onMonth, onQuarter }) {
   const yB = (v) => B1 - (max ? (v / max) * (B1 - B0) : 0);
   const head = valueHead();
   const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart-svg chart-svg-wide', role: 'img', 'aria-label': `Anggaran per bulan ${year} (batang) dan porsi dari total setahun (garis). Panah kiri dan kanan memilih bulan, Enter membuka rincian.` });
+  const barFill = gradient(svg, 'chart-bar-top', 'chart-bar-bottom');
+  const areaFill = gradient(svg, 'chart-area-top', 'chart-area-bottom');
   const hl = svgEl('rect', { x: 0, y: 6, width: band * 3, height: H - 12, rx: 10, class: 'chart-hl' }, svg);
-  svgEl('line', { x1: PX, x2: W - PX, y1: B1, y2: B1, class: 'chart-base' }, svg);
-  const text = (x, y, s, cls) => { const t = svgEl('text', { x, y, 'text-anchor': 'middle', class: cls }, svg); t.textContent = s; return t; };
-  const bars = []; const vLabels = []; const pLabels = []; const rings = [];
+  const cols = vals.map((_, i) => svgEl('rect', { x: xOf(i) - band / 2 + 3, y: 12, width: band - 6, height: H - 20, rx: 8, class: 'chart-col' }, svg));
+  const text = (x, y, s, cls, anchor = 'middle') => { const t = svgEl('text', { x, y, 'text-anchor': anchor, class: cls }, svg); t.textContent = s; return t; };
+  const step = niceStep(max);
+  for (let k = 1; step > 0 && k * step < max; k += 1) {
+    const gy = yB(k * step);
+    svgEl('line', { x1: PL, x2: W - PR + 6, y1: gy, y2: gy, class: 'chart-grid' }, svg);
+    text(W - 2, gy + 3.5, bare(k * step), 'chart-grid-label', 'end');
+  }
+  svgEl('line', { x1: PL, x2: W - PR + 6, y1: B1, y2: B1, class: 'chart-base' }, svg);
+  const bars = []; const vLabels = []; const pLabels = []; const rings = []; const axes = []; const geo = [];
   vals.forEach((v, i) => {
     const hgt = v > 0 ? Math.max(2, B1 - yB(v)) : 0;
-    bars.push(svgEl('rect', { x: xOf(i) - bw / 2, y: B1 - hgt, width: bw, height: hgt, rx: 4, class: 'chart-bar' }, svg));
-    vLabels.push(text(xOf(i), B1 - hgt - 8, bare(v), 'chart-val'));
-    text(xOf(i), H - 10, MONTHS_SHORT[i], 'chart-axis');
+    const x = xOf(i) - bw / 2;
+    geo.push([x, hgt]);
+    bars.push(svgEl('path', { d: barPath(x, B1 - hgt, bw, hgt, 6), fill: barFill, class: 'chart-bar' }, svg));
+    vLabels.push(text(xOf(i), B1 - hgt - 8, bare(v), i === top ? 'chart-val is-top' : 'chart-val'));
+    axes.push(text(xOf(i), H - 10, MONTHS_SHORT[i], 'chart-axis'));
   });
   const pts = pcts.map((p, i) => [xOf(i), yL(p)]);
-  const pline = svgEl('path', { d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(''), class: 'chart-line2' }, svg);
+  const lineD = monoPath(pts); // kurva monoton: selalu tepat melewati setiap titik %
+  const area = svgEl('path', { d: `${lineD}L${xOf(11)},${L1 + 22}L${xOf(0)},${L1 + 22}Z`, fill: areaFill }, svg);
+  const pline = svgEl('path', { d: lineD, class: 'chart-line2' }, svg);
   pts.forEach(([x, y], i) => {
     rings.push(svgEl('circle', { cx: x, cy: y, r: 5, class: 'chart-ring' }, svg));
     pLabels.push(text(x, y - 11, formatPercent(pcts[i]), 'chart-pct'));
@@ -336,7 +368,8 @@ export function monthlyChart({ rows, total, count, year, onMonth, onQuarter }) {
     if (range && hov === null) { hl.classList.add('is-on'); moveTo(hl, xOf(range[0]) - band / 2); } else hl.classList.remove('is-on');
     vals.forEach((_, i) => {
       const dim = hov !== null ? i !== hov : range ? !range.includes(i) : false;
-      [bars[i], vLabels[i], pLabels[i], rings[i]].forEach((n) => n.classList.toggle('is-dim', dim));
+      [bars[i], vLabels[i], pLabels[i]].forEach((n) => n.classList.toggle('is-dim', dim));
+      [cols[i], rings[i], pLabels[i], axes[i]].forEach((n) => n.classList.toggle('is-on', i === hov));
     });
   };
   const rest = () => {
@@ -376,11 +409,8 @@ export function monthlyChart({ rows, total, count, year, onMonth, onQuarter }) {
   rest();
   requestAnimationFrame(() => {
     hl.style.transition = '';
-    bars.forEach((b, i) => {
-      const y = Number(b.getAttribute('y')); const hgt = Number(b.getAttribute('height'));
-      growAttr(b, 'height', 0, hgt, i * 30); growAttr(b, 'y', B1, y, i * 30);
-    });
-    drawIn(pline);
+    bars.forEach((b, i) => growBar(b, geo[i][0], bw, B1, geo[i][1], i * 30));
+    drawIn(pline, area);
   });
   return h('div', { class: 'chart-block' }, head.el, legend, h('div', { class: 'chart-scroll' }, svg), tabs);
 }

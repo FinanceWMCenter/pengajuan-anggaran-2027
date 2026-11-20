@@ -39,6 +39,7 @@
     /* Grafik: biru dan oranye merek = dua slot kategori (sudah divalidasi, terang dan gelap) */
     --viz-1: #2051b4;
     --viz-2: #ef8422;
+    --viz-line: #6b4fd6; /* ungu: hanya garis % di grafik per bulan (D-54) */
     --viz-neutral: #c5ccd9;
     --viz-grid: #e3e8f1;
     --viz-ink: #46536b;
@@ -101,6 +102,7 @@
 
         --viz-1: #4f82e0;
         --viz-2: #d4720f;
+        --viz-line: #a08cf7;
         --viz-neutral: #3a4560;
         --viz-grid: #223052;
         --viz-ink: #c5cde0;
@@ -140,6 +142,7 @@
 
     --viz-1: #4f82e0;
     --viz-2: #d4720f;
+    --viz-line: #a08cf7;
     --viz-neutral: #3a4560;
     --viz-grid: #223052;
     --viz-ink: #c5cde0;
