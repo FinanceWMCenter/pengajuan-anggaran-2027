@@ -815,6 +815,112 @@ begin
   delete from notifications where program_name = 'Uji Anggota Dihapus';
 end $$;
 
+-- =====================================================================
+-- D-53: RAB Gabungan tahap 2 - saran otomatis
+-- =====================================================================
+set role anon;
+select test.expect_denied('select * from public.consolidation_dismissed limit 1', 'D-53 tabel saran diabaikan tertutup');
+select test.expect_denied($q$select public._rab_suggest()$q$, 'D-53 pembantu _rab_suggest tertutup');
+select test.expect_denied($q$select * from public._rab_tokens('x')$q$, 'D-53 pembantu _rab_tokens tertutup');
+select test.expect_error($q$select rpc_f_rab_suggestions('tebakan')$q$, 'AUTH_EXPIRED', 'D-53 saran dengan token acak ditolak');
+select test.expect_error(format('select rpc_f_rab_suggestions(%L)', current_setting('test.tok_pd52')), 'FORBIDDEN', 'D-53 sesi divisi tidak bisa membaca saran');
+select test.expect_error(format('select rpc_f_rab_dismiss(%L, %L, %L)', current_setting('test.tok_pd52'), 'jakim', 'JAKIM'), 'FORBIDDEN', 'D-53 sesi divisi tidak bisa mengabaikan saran');
+reset role;
+
+-- Kata khas: kata umum, bulan, angka, dan kata < 3 huruf dibuang; huruf-angka menempel dipisah
+select test.ok((select string_agg(word, ' ' order by pos) from public._rab_tokens('Pengajuan Seragam Januari 2027 (Batch 1)')) = 'seragam', 'D-53 kata umum, bulan, angka dibuang');
+select test.ok((select string_agg(word, ' ' order by pos) from public._rab_tokens('WM X JAKIM2027 & Training Tim Baru')) = 'jakim', 'D-53 huruf-angka menempel dipisah, kata generik dibuang');
+select test.ok(public._rab_similar('seragam', 'seragamm') and public._rab_similar('jakim', 'jakkim') and not public._rab_similar('terapis', 'fisioterapi') and not public._rab_similar('tim', 'tum'), 'D-53 toleransi salah ketik ringan (bukan kata pendek/berbeda)');
+
+do $$
+declare
+  fin text := current_setting('test.tok_fin52');
+  dash jsonb;
+  d1 smallint := (select id from divisions where code = 'business-development');
+  d2 smallint := (select id from divisions where code = 'hr-pd');
+  d3 smallint := (select id from divisions where code = 'brand-communication');
+  d4 smallint := (select id from divisions where code = 'hr-ga-purchasing');
+  c smallint := (select min(id) from program_categories);
+  j1 uuid; j2 uuid; j3 uuid; s1 uuid; s2 uuid; s3 uuid; k1 uuid; k2 uuid; jb uuid; jc uuid;
+  v jsonb; f jsonb; g bigint; n_groups int;
+begin
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d1, 'Event JAKIM 2027', c, 3, 'Uji Saran') returning id into j1;
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d2, 'WM X JAKIM 2027', c, 3, 'Uji Saran') returning id into j2;
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama, status, tanggal_pengajuan) values (d3, 'JAKIM 2027', c, 3, 'Uji Saran', 'diajukan', current_date) returning id into j3;
+  insert into program_items (program_id, urutan, uraian, qty, satuan, harga_satuan) values (j3, 1, 'Media', 2, 'paket', 1500000);
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d4, 'Pengajuan Seragam Zulu Januari 2027', c, 1, 'Uji Saran') returning id into s1;
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d4, 'Pengajuan Seragam Zulu Februari 2027', c, 2, 'Uji Saran') returning id into s2;
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d4, 'Pengajuan Seragamm Zulu Maret 2027', c, 3, 'Uji Saran') returning id into s3;
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d2, 'Bingkisan Qwerty Karyawan', c, 4, 'Uji Saran') returning id into k1;
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d4, 'Vaksinasi Asdfgh Karyawan', c, 5, 'Uji Saran') returning id into k2;
+  dash := public._overview_finance();   -- sesudah program uji dibuat: setelah ini RAB Gabungan tidak boleh mengubah Dashboard
+
+  v := rpc_f_rab_suggestions(fin);
+  select x into f from jsonb_array_elements(v -> 'fresh') x where x -> 'programs' @> jsonb_build_array(jsonb_build_object('id', j1));
+  perform test.ok(f is not null and (f ->> 'name') = 'JAKIM 2027' and jsonb_array_length(f -> 'programs') = 3
+                  and f -> 'programs' @> jsonb_build_array(jsonb_build_object('id', j2), jsonb_build_object('id', j3)), 'D-53 saran JAKIM: 3 program lintas divisi, nama "JAKIM 2027"', coalesce(f::text, 'tidak ada'));
+  perform test.ok((f ->> 'total')::numeric = 3000000 and (f ->> 'division_count')::int = 3, 'D-53 total saran hanya program Diajukan (3 divisi)');
+  select x into f from jsonb_array_elements(v -> 'fresh') x where x -> 'programs' @> jsonb_build_array(jsonb_build_object('id', s1));
+  perform test.ok(f is not null and jsonb_array_length(f -> 'programs') = 3 and f -> 'programs' @> jsonb_build_array(jsonb_build_object('id', s3)) and (f ->> 'name') like 'Seragam Zulu%',
+                  'D-53 saran Seragam: 3 bulan, termasuk salah ketik "Seragamm"', coalesce(f::text, 'tidak ada'));
+  perform test.ok(not exists (select 1 from jsonb_array_elements(v -> 'fresh') x
+                              where x -> 'programs' @> jsonb_build_array(jsonb_build_object('id', k1), jsonb_build_object('id', k2))),
+                  'D-53 hanya satu kata biasa yang sama (Karyawan) tidak disarankan');
+  perform test.ok((select count(*) = count(distinct p ->> 'id') from jsonb_array_elements(v -> 'fresh') x, jsonb_array_elements(x -> 'programs') p),
+                  'D-53 satu program hanya muncul di satu saran');
+  perform test.ok((v ->> 'count')::int = jsonb_array_length(v -> 'fresh') + coalesce((select sum(jsonb_array_length(x -> 'programs')) from jsonb_array_elements(v -> 'for_group') x), 0)
+                  and rpc_f_rab_suggest_count(fin) = (v ->> 'count')::int, 'D-53 angka di menu = jumlah saran');
+
+  -- Abaikan & kembalikan
+  perform rpc_f_rab_dismiss(fin, 'jakim', 'JAKIM 2027');
+  v := rpc_f_rab_suggestions(fin);
+  perform test.ok(not exists (select 1 from jsonb_array_elements(v -> 'fresh') x where x -> 'programs' @> jsonb_build_array(jsonb_build_object('id', j1)))
+                  and v -> 'dismissed' @> '[{"signature":"jakim","label":"JAKIM 2027"}]', 'D-53 abaikan: saran hilang & masuk daftar diabaikan');
+  perform test.expect_error(format('select rpc_f_rab_dismiss(%L, %L, %L)', fin, 'a;drop', 'x'), 'VALIDATION:signature', 'D-53 kunci saran tidak valid ditolak');
+  perform rpc_f_rab_undismiss(fin, 'jakim');
+  perform test.ok(exists (select 1 from jsonb_array_elements(rpc_f_rab_suggestions(fin) -> 'fresh') x where x -> 'programs' @> jsonb_build_array(jsonb_build_object('id', j1))), 'D-53 kembalikan: saran muncul lagi');
+  perform test.ok((select count(*) from audit_log where action in ('consolidation_dismiss', 'consolidation_undismiss') and new_data ->> 'signature' = 'jakim') = 2, 'D-53 abaikan/kembalikan tercatat di Log');
+  perform test.expect_error(format('select rpc_f_rab_undismiss(%L, %L)', fin, 'jakim'), 'NOT_FOUND', 'D-53 kembalikan yang tidak diabaikan ditolak');
+
+  -- Terima saran A (satu transaksi)
+  n_groups := (select count(*) from consolidation_groups);
+  g := (rpc_f_rab_save(fin, null, 'Uji Gabungan Lain', null) ->> 'id')::bigint;
+  perform rpc_f_rab_add(fin, g, jsonb_build_array(s1));
+  perform test.expect_error(format('select rpc_f_rab_create_from_suggestion(%L, %L, null, %L)', fin, 'Uji Seragam Gagal', jsonb_build_array(s1, s2)), 'VALIDATION:programs', 'D-53 terima saran berisi program milik gabungan lain ditolak');
+  perform test.ok(not exists (select 1 from consolidation_groups where name = 'Uji Seragam Gagal'), 'D-53 penolakan: gabungan tidak ikut terbuat (semua atau tidak sama sekali)');
+  perform rpc_f_rab_delete(fin, g);
+  v := rpc_f_rab_create_from_suggestion(fin, 'JAKIM 2027', 'Kunjungan JAKIM', jsonb_build_array(j1, j2, j3));
+  g := (v ->> 'id')::bigint;
+  perform test.ok((select count(*) from consolidation_members where group_id = g) = 3, 'D-53 terima saran: RAB Gabungan dibuat berisi 3 program');
+  perform test.ok((select count(*) from audit_log where entity_id = g::text and action in ('consolidation_create', 'consolidation_add') and new_data ->> 'via' = 'saran otomatis') = 2, 'D-53 Log mencatat "dari saran otomatis"');
+  perform test.ok(not exists (select 1 from jsonb_array_elements(rpc_f_rab_suggestions(fin) -> 'fresh') x where x -> 'programs' @> jsonb_build_array(jsonb_build_object('id', j1))), 'D-53 saran yang sudah diterima tidak muncul lagi');
+
+  -- Saran B: program baru yang cocok dengan gabungan yang ada
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d1, 'Dokumentasi JAKIM 2027', c, 3, 'Uji Saran') returning id into jb;
+  insert into programs (division_id, nama_program, program_category_id, periode_bulan, pic_nama) values (d2, 'Transport Jakim Delegasi', c, 3, 'Uji Saran') returning id into jc;
+  dash := public._overview_finance();   -- 2 program uji baru (draft) mengubah jumlah draft; sesudah ini tidak boleh berubah lagi
+  v := rpc_f_rab_suggestions(fin);
+  select x into f from jsonb_array_elements(v -> 'for_group') x where (x ->> 'group_id')::bigint = g;
+  perform test.ok(f is not null and jsonb_array_length(f -> 'programs') = 2 and f -> 'programs' @> jsonb_build_array(jsonb_build_object('id', jb, 'why', jsonb_build_array('JAKIM'))), 'D-53 saran tambahan untuk JAKIM 2027 (dengan alasan)', coalesce(f::text, 'tidak ada'));
+  perform test.ok(not exists (select 1 from jsonb_array_elements(v -> 'fresh') x, jsonb_array_elements(x -> 'programs') p where (p ->> 'id')::uuid in (jb, jc)), 'D-53 saran tambahan tidak muncul lagi sebagai saran baru');
+  perform rpc_f_rab_reject(fin, g, jc::text);
+  perform test.ok(exists (select 1 from consolidation_exclusions where group_id = g and program_id = jc)
+                  and not (rpc_f_rab_suggestions(fin) -> 'for_group' @> jsonb_build_array(jsonb_build_object('programs', jsonb_build_array(jsonb_build_object('id', jc))))), 'D-53 tolak: masuk "bukan bagian" & tidak disarankan lagi');
+  perform test.ok(exists (select 1 from audit_log where action = 'consolidation_reject' and entity_id = g::text), 'D-53 tolak tercatat di Log');
+  perform test.expect_error(format('select rpc_f_rab_reject(%L, %s, %L)', fin, g, j1), 'VALIDATION:program', 'D-53 tolak program yang sudah anggota ditolak');
+  perform rpc_f_rab_add_suggested(fin, g, jsonb_build_array(jb));
+  perform test.ok(exists (select 1 from consolidation_members where group_id = g and program_id = jb)
+                  and exists (select 1 from audit_log where action = 'consolidation_add' and entity_id = g::text and new_data ->> 'via' = 'saran otomatis' and new_data -> 'programs' @> jsonb_build_array(jsonb_build_object('id', jb))), 'D-53 tambahkan dari saran: masuk & tercatat');
+
+  perform test.ok(public._overview_finance() = dash, 'D-53 angka Dashboard tidak berubah');
+
+  -- Bersihkan
+  perform rpc_f_rab_delete(fin, g);
+  delete from programs where pic_nama = 'Uji Saran';
+  delete from consolidation_dismissed;
+  delete from audit_log where entity_type = 'consolidation';
+end $$;
+
 -- Bersihkan alat uji dan kembalikan PIN seperti sebelum tes
 update divisions d set pin_hash = b.pin_hash, pin_updated_at = b.pin_updated_at from _pin_backup b where b.id = d.id;
 delete from app_settings where key = 'finance_pin_hash' and not exists (select 1 from _master_backup);

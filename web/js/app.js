@@ -9,6 +9,7 @@ import { errorBlock, flash } from './ui/components.js';
 import { toast } from './ui/toast.js';
 import { confirmDialog } from './ui/dialog.js';
 import { notificationBell } from './ui/notifications.js';
+import { rabCountBadge } from './ui/rab-count.js';
 import { h } from './utils.js';
 
 import { loginView, homePathFor } from './views/login.js';
@@ -187,7 +188,7 @@ function financeShell(ctx, route) {
     nav: [
       { key: 'f-overview', label: 'Dashboard', icon: 'overview', href: '#/finance/overview' },
       { key: 'f-programs', label: 'Semua Program', icon: 'list', href: '#/finance/programs' },
-      { key: 'f-rab', label: 'RAB Gabungan', icon: 'layers', href: '#/finance/rab' },
+      { key: 'f-rab', label: 'RAB Gabungan', icon: 'layers', href: '#/finance/rab', extra: rabCountBadge() },
       { group: 'Pengaturan' },
       { key: 'f-divisions', label: 'Divisi & PIN', icon: 'key', href: '#/finance/divisions' },
       { key: 'f-master', label: 'Kategori', icon: 'tag', href: '#/finance/master' },

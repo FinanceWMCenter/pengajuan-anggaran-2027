@@ -715,3 +715,16 @@ button.heat-total { cursor: pointer; }
 .rab-pick .wm-table-wrap { max-height: 55vh; overflow: auto; }
 .wm-table tr.is-muted td { color: var(--muted-foreground); }
 .wm-table td label { cursor: pointer; font-weight: 400; }
+
+/* ---------- RAB Gabungan: saran otomatis (D-53) ---------- */
+.rab-sug-card { border-color: color-mix(in srgb, var(--brand-orange) 55%, var(--border)); }
+.rab-sug-list { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+.rab-sug { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.625rem 1rem; padding: 0.875rem 1.25rem; border-top: 1px solid var(--border); }
+.rab-sug-list > .rab-sug:first-child { border-top: 0; }
+.rab-sug-main { flex: 1 1 20rem; min-width: 0; display: flex; flex-direction: column; gap: 0.125rem; }
+.rab-sug-title { font-weight: 700; color: var(--primary); overflow-wrap: anywhere; }
+.rab-sug-meta { font-size: 0.875rem; }
+.rab-sug-why { font-size: 0.75rem; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.rab-sug-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.rab-dismissed > summary { cursor: pointer; padding: 0.875rem 1.25rem; font-weight: 600; color: var(--muted-foreground); border-top: 1px solid var(--border); }
+.wm-nav-item .wm-count { margin-left: auto; }

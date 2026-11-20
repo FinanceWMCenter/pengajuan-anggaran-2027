@@ -30,6 +30,9 @@ begin
   if to_regclass('public.consolidation_groups') is not null then
     delete from public.consolidation_groups;   -- RAB Gabungan (D-52) ikut kosong
   end if;
+  if to_regclass('public.consolidation_dismissed') is not null then
+    delete from public.consolidation_dismissed;   -- saran yang diabaikan (D-53)
+  end if;
   delete from public.program_item_history;
   delete from public.notifications;
   delete from public.audit_log where action not in ('pin_reset', 'master_pin_change', 'category_change');

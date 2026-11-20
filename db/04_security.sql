@@ -81,6 +81,16 @@ begin
     grant execute on function public.rpc_f_rab_candidates(text, bigint) to anon;
     grant execute on function public.rpc_f_rab_map(text) to anon;
   end if;
+  -- RAB Gabungan tahap 2: saran otomatis (05c_rab_saran.sql, D-53)
+  if to_regprocedure('public.rpc_f_rab_suggestions(text)') is not null then
+    grant execute on function public.rpc_f_rab_suggestions(text) to anon;
+    grant execute on function public.rpc_f_rab_suggest_count(text) to anon;
+    grant execute on function public.rpc_f_rab_create_from_suggestion(text, text, text, jsonb) to anon;
+    grant execute on function public.rpc_f_rab_add_suggested(text, bigint, jsonb) to anon;
+    grant execute on function public.rpc_f_rab_reject(text, bigint, text) to anon;
+    grant execute on function public.rpc_f_rab_dismiss(text, text, text) to anon;
+    grant execute on function public.rpc_f_rab_undismiss(text, text) to anon;
+  end if;
 end;
 $$;
 -- Fungsi berawalan "_" (pembantu internal) sengaja TIDAK diberi izin.

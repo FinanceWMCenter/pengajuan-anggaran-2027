@@ -33,7 +33,7 @@ Panduan ini untuk Anda (bukan programmer). Claude di VS Code akan menulis kodeny
 **Di Supabase (DEV dulu):**
 1. Buka project `anggaran-2027-dev` -> menu kiri **SQL Editor** -> **New query**.
 2. Di VS Code buka file `db/01_schema.sql`, tekan `Ctrl+A` lalu `Ctrl+C`. Di SQL Editor tempel (`Ctrl+V`) lalu klik **Run**. Harus muncul "Success".
-3. Ulangi langkah 2 (query baru setiap file) berurutan untuk: `02_seed_master.sql` -> `03_functions.sql` -> `04_security.sql` -> `05_overview.sql` -> `05b_rab_gabungan.sql`.
+3. Ulangi langkah 2 (query baru setiap file) berurutan untuk: `02_seed_master.sql` -> `03_functions.sql` -> `04_security.sql` -> `05_overview.sql` -> `05b_rab_gabungan.sql` -> `05c_rab_saran.sql`.
 4. **PIN (DEV dan PROD):** jalankan `06_bootstrap.sql`. Database membuat PIN **acak 6 digit** untuk Finance dan tiap divisi (semuanya berbeda, karena PIN menentukan siapa yang masuk - D-38), ditampilkan **satu kali** di tabel hasil di bawah editor. Salin semuanya ke password manager sekarang juga. (Bila dijalankan lagi, PIN yang sudah ada tidak berubah.) Master PIN bisa diganti nanti di halaman Finance -> Divisi & PIN.
 4b. **Hanya DEV:** jalankan `99_test_seed.sql` untuk data demo realistis (158 program, semua divisi terisi Januari-Desember, sebagian draft). File ini tidak mengubah PIN.
 5. Cek menu **Table Editor**: ada 10 tabel, masing-masing berlabel "RLS enabled".
@@ -60,6 +60,9 @@ Khusus perubahan D-38 (PIN Finance 8 -> 6 digit): jalankan `07_reset_semua_pin.s
 2. SQL Editor -> New query -> tempel seluruh isi `db/05b_rab_gabungan.sql` -> Run -> harus "Success". Aman diulang; hanya menambah tabel & fungsi baru, data program tidak disentuh.
 3. Jalankan cek keamanan (D2). Hasil harus SEMUA LULUS (termasuk cek D-52).
 4. Baru setelah itu web versi baru dikirim (menu RAB Gabungan). Urutan ini penting: web baru memanggil fungsi dari file 05b.
+
+## D1e. Memasang saran otomatis RAB Gabungan (D-53)
+Sama seperti D1d, dengan file `db/05c_rab_saran.sql` (butuh 05b sudah terpasang): backup -> SQL Editor -> Run -> cek keamanan (D2) SEMUA LULUS -> baru web dikirim.
 
 ## D2. Uji keamanan di Supabase (Fase 3 - WAJIB sebelum data asli masuk)
 1. Siapkan Project URL dan anon/publishable key DEV (Project Settings -> API / Data API).

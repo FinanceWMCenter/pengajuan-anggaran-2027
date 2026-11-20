@@ -30,7 +30,7 @@ Invoke-Psql @("-d", "postgres", "-q", "-c", "drop database if exists $Database w
 Invoke-Psql @("-d", "postgres", "-q", "-c", "create database $Database")
 
 Write-Host "2) Menjalankan file db/ ..." -ForegroundColor Cyan
-foreach ($f in @("01_schema", "02_seed_master", "03_functions", "04_security", "05_overview", "05b_rab_gabungan", "06_bootstrap", "99_test_seed")) {
+foreach ($f in @("01_schema", "02_seed_master", "03_functions", "04_security", "05_overview", "05b_rab_gabungan", "05c_rab_saran", "06_bootstrap", "99_test_seed")) {
   Write-Host "   - $f.sql"
   Invoke-Psql @("-d", $Database, "-v", "ON_ERROR_STOP=1", "-q", "-o", "NUL", "-f", (Join-Path $root "db\$f.sql"))
 }

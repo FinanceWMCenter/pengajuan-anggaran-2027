@@ -35,7 +35,7 @@ export function renderShell(root, { nav, active, pageTitle, context, user, onLog
     navEl.append(h('a', {
       class: 'wm-nav-item', href: item.href, 'aria-current': item.key === active ? 'page' : null,
       onclick: () => closeMobile(),
-    }, icon(item.icon), h('span', { class: 'spacer' }, item.label)));
+    }, icon(item.icon), h('span', { class: 'spacer' }, item.label), item.extra || null));
   }
   sidebar.append(navEl);
   sidebar.append(h('div', { class: 'sidebar-bottom' },

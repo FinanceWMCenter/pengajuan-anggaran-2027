@@ -12,6 +12,7 @@ const ACTIONS = {
   master_pin_change: 'Ganti PIN Finance', category_change: 'Ubah kategori', export: 'Export',
   consolidation_create: 'Buat RAB Gabungan', consolidation_update: 'Ubah RAB Gabungan', consolidation_delete: 'Hapus RAB Gabungan',
   consolidation_add: 'Tambah ke RAB Gabungan', consolidation_remove: 'Keluarkan dari RAB Gabungan',
+  consolidation_reject: 'Tolak saran RAB Gabungan', consolidation_dismiss: 'Abaikan saran RAB Gabungan', consolidation_undismiss: 'Kembalikan saran RAB Gabungan',
 };
 const ROLES = { division: 'Divisi', finance: 'Finance', system: 'Sistem' };
 
@@ -73,7 +74,12 @@ function describe(r) {
 
 /** Ringkasan satu baris untuk entri RAB Gabungan (D-52). */
 function rabDescribe(r, p) {
+  if (r.action === 'consolidation_dismiss' || r.action === 'consolidation_undismiss') return `Saran "${p.label}"`;
+  const via = p.via ? ' (dari saran otomatis)' : '';
   const g = `RAB Gabungan "${p.group_name}"`;
+  if (r.action === 'consolidation_reject') return `${g} · ${p.nama_program} (ditolak)`;
+  if (r.action === 'consolidation_create') return `${g}${via}`;
+  if (r.action === 'consolidation_add') return `${g} · +${(p.programs || []).length} program${via}`;
   if (r.action === 'export') return `${g} · ${p.program_count} program, ${p.row_count} baris`;
   if (r.action === 'consolidation_add') return `${g} · +${(p.programs || []).length} program`;
   if (r.action === 'consolidation_remove') return `${g} · ${p.nama_program}${r.actor_role === 'system' ? ' (program dihapus)' : ''}`;
@@ -88,7 +94,11 @@ function rabBody(r) {
   const n = r.new_data || {};
   const p = r.new_data || r.old_data || {};
   const list = (programs) => h('ul', { class: 'history-list' }, programs.map((x) => h('li', null, h('b', null, x.nama_program), x.division_name ? ` · ${x.division_name}` : '', x.periode_bulan ? ` · ${monthName(x.periode_bulan)}` : '')));
+  if (r.action === 'consolidation_dismiss') return [h('div', null, 'Saran diabaikan: ', h('b', null, p.label)), h('div', { class: 'muted' }, `Kata: ${p.signature}. Saran ini tidak muncul lagi sampai dikembalikan.`)];
+  if (r.action === 'consolidation_undismiss') return [h('div', null, 'Saran dikembalikan: ', h('b', null, p.label || p.signature))];
   const lines = [h('div', null, 'RAB Gabungan: ', h('b', null, p.group_name))];
+  if (p.via) lines.push(h('div', { class: 'muted' }, 'Dari saran otomatis'));
+  if (r.action === 'consolidation_reject') lines.push(section('Saran ditolak', list([o])), h('p', { class: 'muted' }, 'Program dicatat "Bukan bagian gabungan ini" dan tidak disarankan lagi untuk gabungan tersebut.'));
   if (r.action === 'consolidation_add') lines.push(section(`Program ditambahkan (${(n.programs || []).length})`, list(n.programs || [])));
   if (r.action === 'consolidation_remove') lines.push(section('Program dikeluarkan', list([o])), h('p', { class: 'muted' }, r.actor_role === 'system' ? 'Program dihapus, sehingga otomatis keluar dari RAB Gabungan.' : 'Program hanya dilepas dari gabungan, tidak dihapus.'));
   if (r.action === 'consolidation_delete') lines.push(section(`Program yang dilepas (${(o.programs || []).length})`, (o.programs || []).length ? list(o.programs) : h('p', { class: 'muted' }, 'Tidak ada program.')), h('p', { class: 'muted' }, 'Program tetap ada di divisi masing-masing.'));

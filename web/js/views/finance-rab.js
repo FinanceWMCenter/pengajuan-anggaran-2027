@@ -9,6 +9,9 @@ import { pageHead, statusBadge, dataTable, errorBlock, loadingBlock, emptyState,
 import { openDialog, confirmDialog } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { exportRab } from '../excel.js';
+import { invalidateRabCount } from '../ui/rab-count.js';
+
+const reload = () => { invalidateRabCount(); refresh(); };
 
 const isNotFound = (e) => e instanceof ApiError && e.code === 'NOT_FOUND';
 
@@ -64,7 +67,7 @@ export async function financeRabListView(main) {
   const createBtn = h('button', {
     type: 'button', class: 'wm-btn wm-btn-primary', onclick: async () => {
       const g = await nameDialog({ title: 'RAB Gabungan baru', description: 'Setelah dibuat, tambahkan program lewat tombol "Tambah program".', confirmLabel: 'Buat' });
-      if (g) { toast(`RAB Gabungan "${g.name}" dibuat.`, 'success'); navigate(`/finance/rab/${g.id}`); }
+      if (g) { invalidateRabCount(); toast(`RAB Gabungan "${g.name}" dibuat.`, 'success'); navigate(`/finance/rab/${g.id}`); }
     },
   }, icon('layers'), 'RAB Gabungan baru');
   main.append(pageHead({
@@ -77,12 +80,17 @@ export async function financeRabListView(main) {
 
   let d;
   let year;
+  let sg;
   try {
-    [d, year] = await Promise.all([rpc('rpc_f_rab_list'), getYear()]);
+    [d, year, sg] = await Promise.all([
+      rpc('rpc_f_rab_list'), getYear(),
+      rpc('rpc_f_rab_suggestions').catch(() => null), // saran (D-53); gagal = halaman tetap tampil tanpa saran
+    ]);
   } catch (e) {
     body.replaceChildren(errorBlock(errorMessage(e), () => refresh()));
     return;
   }
+  const suggestions = sg ? suggestionSection(sg, year) : null;
 
   const stats = h('div', { class: 'stats' },
     brandPanel({ label: 'Total semua RAB Gabungan', value: d.total, note: `${formatRupiah(d.total)} · hanya program Diajukan`, iconName: 'layers' }),
@@ -90,15 +98,15 @@ export async function financeRabListView(main) {
     statCard({ label: 'Program terkonsolidasi', value: String(d.member_count), note: `dari ${plural(d.all_program_count, 'program')}`, iconName: 'list', chip: 'is-secondary' }));
 
   if (!d.groups.length) {
-    body.replaceChildren(stats, h('div', { class: 'wm-card' }, emptyState({
+    body.replaceChildren(stats, suggestions || '', h('div', { class: 'wm-card' }, emptyState({
       title: 'Belum ada RAB Gabungan',
-      text: 'Klik "RAB Gabungan baru", beri nama kegiatan (misalnya JAKIM 2027), lalu tambahkan program dari divisi-divisi terkait.',
+      text: 'Klik "RAB Gabungan baru", beri nama kegiatan (misalnya JAKIM 2027), lalu tambahkan program dari divisi-divisi terkait. Atau tinjau saran otomatis di atas.',
       iconName: 'layers',
     })));
     return;
   }
 
-  body.replaceChildren(stats, h('div', { class: 'rab-grid' }, d.groups.map((g) => h('a', { class: 'wm-card rab-card', href: `#/finance/rab/${g.id}` },
+  body.replaceChildren(stats, suggestions || '', h('div', { class: 'rab-grid' }, d.groups.map((g) => h('a', { class: 'wm-card rab-card', href: `#/finance/rab/${g.id}` },
     h('h2', { class: 'rab-card-title' }, g.name),
     g.note ? h('p', { class: 'rab-card-note' }, g.note) : null,
     h('div', { class: 'rab-card-total num' }, formatRupiah(g.total)),
@@ -112,6 +120,127 @@ export async function financeRabListView(main) {
 }
 
 // ---------------------------------------------------------------------------
+// Saran otomatis (D-53) di halaman daftar
+// ---------------------------------------------------------------------------
+function suggestionSection(sg, year) {
+  // Ringkas: 3 nama pertama + "lainnya" (daftar lengkap ada di pop-up Tinjau)
+  const progNames = (ps) => ps.slice(0, 3).map((p) => p.nama_program).join(' · ') + (ps.length > 3 ? ` · +${ps.length - 3} lainnya` : '');
+  const freshRows = sg.fresh.map((s) => h('div', { class: 'rab-sug' },
+    h('div', { class: 'rab-sug-main' },
+      h('div', { class: 'rab-sug-title' }, h('span', { class: 'wm-badge is-good' }, 'Baru'), ' ', s.name),
+      h('div', { class: 'rab-sug-meta' }, `${plural(s.program_count, 'program')} · ${plural(s.division_count, 'divisi')} · ${formatRupiah(s.total)}`,
+        s.programs.some((p) => p.status === 'draft') ? ' (draft tidak dihitung)' : ''),
+      h('div', { class: 'rab-sug-why' }, 'Kata yang sama: ', h('b', null, s.words.join(', ')), ` · ${progNames(s.programs)}`)),
+    h('div', { class: 'rab-sug-actions' },
+      h('button', { type: 'button', class: 'wm-btn wm-btn-primary wm-btn-sm', onclick: () => reviewSuggestion(s, year) }, 'Tinjau'),
+      h('button', {
+        type: 'button', class: 'wm-btn wm-btn-outline wm-btn-sm', title: 'Saran ini tidak akan muncul lagi (bisa dikembalikan)',
+        onclick: async () => {
+          try {
+            await rpc('rpc_f_rab_dismiss', { p_signature: s.signature, p_label: s.name });
+            toast(`Saran "${s.name}" diabaikan.`, 'success');
+            reload();
+          } catch (e) { toast(errorMessage(e), 'error'); }
+        },
+      }, 'Abaikan'))));
+  const extraRows = sg.for_group.map((x) => h('div', { class: 'rab-sug' },
+    h('div', { class: 'rab-sug-main' },
+      h('div', { class: 'rab-sug-title' }, h('span', { class: 'wm-badge is-warning' }, 'Tambahan'), ' ', x.group_name),
+      h('div', { class: 'rab-sug-meta' }, `${plural(x.programs.length, 'program baru')} cocok`),
+      h('div', { class: 'rab-sug-why' }, x.programs.map((p) => `${p.nama_program} (${p.division_name})`).join(' · '))),
+    h('div', { class: 'rab-sug-actions' }, h('a', { class: 'wm-btn wm-btn-primary wm-btn-sm', href: `#/finance/rab/${x.group_id}` }, 'Lihat'))));
+  const rows = [...freshRows, ...extraRows];
+
+  return h('section', { class: 'wm-card card-table rab-sug-card' },
+    h('div', { class: 'card-head' }, h('div', null,
+      h('h2', { class: 'wm-card-title' }, `Saran otomatis (${sg.count})`),
+      h('p', { class: 'wm-card-subtitle' }, 'Dari kata khas yang sama di nama program. Program tidak pernah masuk sendiri: tinjau dulu, lalu buat atau abaikan.'))),
+    rows.length ? h('div', { class: 'rab-sug-list' }, rows) : h('p', { class: 'rab-excluded-note muted small' }, 'Tidak ada saran saat ini.'),
+    sg.dismissed.length ? h('details', { class: 'rab-dismissed' },
+      h('summary', null, `Saran yang diabaikan (${sg.dismissed.length})`),
+      h('div', { class: 'rab-sug-list' }, sg.dismissed.map((x) => h('div', { class: 'rab-sug' },
+        h('div', { class: 'rab-sug-main' }, h('div', null, x.label), h('div', { class: 'rab-sug-why' }, `Kata: ${x.signature}`)),
+        h('div', { class: 'rab-sug-actions' }, h('button', {
+          type: 'button', class: 'wm-btn wm-btn-outline wm-btn-sm', onclick: async () => {
+            try {
+              await rpc('rpc_f_rab_undismiss', { p_signature: x.signature });
+              toast(`Saran "${x.label}" dikembalikan.`, 'success');
+              reload();
+            } catch (e) { toast(errorMessage(e), 'error'); }
+          },
+        }, 'Kembalikan')))))) : null);
+}
+
+/** Tinjau saran A: ubah nama, hapus centang program yang salah, lalu buat RAB Gabungan sekaligus. */
+async function reviewSuggestion(s, year) {
+  const uid = Math.random().toString(36).slice(2, 8);
+  const picked = new Set(s.programs.map((p) => p.id));
+  const name = h('input', { class: 'wm-input', id: `sug-nama-${uid}`, maxlength: 80, value: s.name, autocomplete: 'off' });
+  const note = h('input', { class: 'wm-input', id: `sug-catatan-${uid}`, maxlength: 200, placeholder: 'Opsional, misalnya tujuan atau tanggal kegiatan', autocomplete: 'off' });
+  const nameErr = h('p', { class: 'wm-error', role: 'alert' });
+  const err = h('p', { class: 'wm-error', role: 'alert' });
+  const count = h('p', { class: 'small muted', 'aria-live': 'polite' });
+  const update = () => {
+    err.textContent = '';
+    const t = s.programs.filter((p) => picked.has(p.id) && p.status === 'diajukan').reduce((a, p) => a + Number(p.total), 0);
+    count.textContent = `${plural(picked.size, 'program')} dipilih · total ${formatRupiah(t)} (draft tidak dihitung)`;
+  };
+  name.addEventListener('input', () => { nameErr.textContent = ''; });
+  const table = h('div', { class: 'rab-pick' }, dataTable({
+    caption: 'Program dalam saran',
+    columns: [
+      {
+        label: 'Pilih', render: (p) => h('input', {
+          type: 'checkbox', id: `sug-pick-${p.id}`, checked: true, 'aria-label': `Pilih ${p.nama_program}`,
+          onchange: (e) => { if (e.target.checked) picked.add(p.id); else picked.delete(p.id); update(); },
+        }),
+      },
+      { label: 'Nama Program', cls: 'cell-start cell-name', render: (p) => [h('label', { for: `sug-pick-${p.id}` }, p.nama_program), h('div', { class: 'xsmall muted' }, `kata yang sama: ${s.words.join(', ')}`)] },
+      { label: 'Divisi', cls: 'cell-start', render: (p) => p.division_name },
+      { label: 'Bulan', render: (p) => monthName(p.periode_bulan) },
+      { label: 'Status', render: (p) => statusBadge(p.status) },
+      { label: 'Total (Rp)', cls: 'cell-num', render: (p) => formatRupiah(p.total) },
+    ],
+    rows: s.programs,
+  }));
+  update();
+  let created = null;
+  const ok = await openDialog({
+    title: 'Tinjau saran RAB Gabungan',
+    description: 'Periksa nama dan program. Hapus centang program yang bukan bagian kegiatan ini.',
+    xwide: true,
+    body: h('div', { class: 'stack-sm' },
+      h('div', { class: 'grid-2' },
+        h('div', { class: 'wm-field' }, h('label', { class: 'wm-label', for: name.id }, 'Nama RAB Gabungan', h('span', { class: 'wm-required' }, '*wajib')), name, nameErr),
+        h('div', { class: 'wm-field' }, h('label', { class: 'wm-label', for: note.id }, 'Catatan'), note)),
+      table, count, err),
+    actions: [
+      { label: 'Batal', value: null },
+      {
+        label: 'Buat RAB Gabungan', value: 'ok', variant: 'primary',
+        validate: async () => {
+          if (name.value.trim().length < 3) { nameErr.textContent = 'Nama minimal 3 karakter.'; name.focus(); return false; }
+          if (!picked.size) { err.textContent = 'Pilih minimal satu program.'; return false; }
+          try {
+            created = await rpc('rpc_f_rab_create_from_suggestion', { p_name: name.value, p_note: note.value, p_program_ids: [...picked] });
+            return true;
+          } catch (e) {
+            if (e instanceof ApiError && e.code === 'VALIDATION' && e.field === 'name') nameErr.textContent = e.message;
+            else err.textContent = errorMessage(e);
+            return false;
+          }
+        },
+      },
+    ],
+  });
+  if (ok === 'ok' && created) {
+    invalidateRabCount();
+    toast(`RAB Gabungan "${created.name}" dibuat dari saran (${plural(picked.size, 'program')}).`, 'success');
+    navigate(`/finance/rab/${created.id}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Halaman detail satu RAB Gabungan
 // ---------------------------------------------------------------------------
 export async function financeRabDetailView(main, ctx) {
@@ -119,9 +248,13 @@ export async function financeRabDetailView(main, ctx) {
   main.append(loadingBlock());
   let d;
   let year;
+  let sg;
   try {
     if (!Number.isInteger(id) || id <= 0) throw new ApiError('NOT_FOUND');
-    [d, year] = await Promise.all([rpc('rpc_f_rab_detail', { p_group_id: id, p_export: false }), getYear()]);
+    [d, year, sg] = await Promise.all([
+      rpc('rpc_f_rab_detail', { p_group_id: id, p_export: false }), getYear(),
+      rpc('rpc_f_rab_suggestions').catch(() => null), // saran tambahan (D-53)
+    ]);
   } catch (e) {
     if (isNotFound(e)) {
       main.replaceChildren(flash('warning', ['RAB Gabungan tidak ditemukan. Mungkin sudah dihapus. ', h('a', { href: '#/finance/rab' }, 'Kembali ke daftar'), '.']));
@@ -132,6 +265,33 @@ export async function financeRabDetailView(main, ctx) {
   }
 
   const group = { id: d.id, name: d.name, note: d.note };
+
+  // ---- Saran tambahan (D-53): program baru yang cocok dengan gabungan ini ----
+  const extra = sg ? sg.for_group.find((x) => Number(x.group_id) === id) : null;
+  const suggestAction = async (fn, args, message) => {
+    try {
+      await rpc(fn, { p_group_id: id, ...args });
+      toast(message, 'success');
+      reload();
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    }
+  };
+  const extraSection = extra ? h('section', { class: 'wm-card card-table rab-sug-card' },
+    h('div', { class: 'card-head' }, h('div', null,
+      h('h2', { class: 'wm-card-title' }, `Saran baru (${extra.programs.length})`),
+      h('p', { class: 'wm-card-subtitle' }, 'Program yang namanya cocok dengan gabungan ini dan belum masuk RAB Gabungan mana pun.'))),
+    h('div', { class: 'rab-sug-list' }, extra.programs.map((p) => h('div', { class: 'rab-sug' },
+      h('div', { class: 'rab-sug-main' },
+        h('div', { class: 'rab-sug-title' }, h('a', { href: `#/finance/p/${p.id}` }, p.nama_program), ' ', statusBadge(p.status)),
+        h('div', { class: 'rab-sug-meta' }, `${p.division_name} · ${monthName(p.periode_bulan, year)} · ${formatRupiah(p.total)}${p.status === 'draft' ? ' (draft tidak dihitung)' : ''}`),
+        h('div', { class: 'rab-sug-why' }, 'Kata yang sama: ', h('b', null, (p.why || []).join(', ')))),
+      h('div', { class: 'rab-sug-actions' },
+        h('button', { type: 'button', class: 'wm-btn wm-btn-primary wm-btn-sm', onclick: () => suggestAction('rpc_f_rab_add_suggested', { p_program_ids: [p.id] }, `${p.nama_program} ditambahkan dari saran.`) }, 'Tambahkan'),
+        h('button', {
+          type: 'button', class: 'wm-btn wm-btn-outline wm-btn-sm', title: 'Tidak disarankan lagi untuk gabungan ini',
+          onclick: () => suggestAction('rpc_f_rab_reject', { p_program_id: p.id }, `${p.nama_program} ditolak (masuk "Bukan bagian gabungan ini").`),
+        }, 'Tolak')))))) : null;
   const itemsOf = (pid) => d.items.filter((i) => i.program_id === pid);
 
   // ---- Aksi kepala halaman ----
@@ -155,7 +315,7 @@ export async function financeRabDetailView(main, ctx) {
     h('button', {
       type: 'button', class: 'wm-btn wm-btn-outline', onclick: async () => {
         const g = await nameDialog({ title: 'Ubah nama RAB Gabungan', group, confirmLabel: 'Simpan' });
-        if (g) { toast('Nama RAB Gabungan diperbarui.', 'success'); refresh(); }
+        if (g) { toast('Nama RAB Gabungan diperbarui.', 'success'); reload(); }
       },
     }, icon('pencil'), 'Ubah nama'),
     h('button', {
@@ -169,7 +329,7 @@ export async function financeRabDetailView(main, ctx) {
         try {
           await rpc('rpc_f_rab_delete', { p_group_id: id });
           toast('RAB Gabungan dihapus. Program tetap ada.', 'success');
-          navigate('/finance/rab', { force: true });
+          invalidateRabCount(); navigate('/finance/rab', { force: true });
         } catch (err) {
           toast(errorMessage(err), 'error');
         }
@@ -278,6 +438,7 @@ export async function financeRabDetailView(main, ctx) {
     pageHead({ title: d.name, subtitle: d.note || 'RAB Gabungan', actions }),
     d.draft_count ? flash('info', `${plural(d.draft_count, 'draft')} ikut ditampilkan tetapi belum dihitung. Hanya program berstatus Diajukan yang masuk total.`) : null,
     stats,
+    extraSection,
     card('Program dalam RAB Gabungan', 'Dikelompokkan per divisi. Klik baris untuk melihat rincian item; klik nama untuk membuka halaman program.', programTable),
     h('p', { class: 'xsmall muted rab-live-note' }, 'Total diambil langsung dari data program terbaru. Bila divisi atau Finance merevisi item, angka di sini ikut berubah.'),
     h('div', { class: 'grid-2' }, card('Per divisi', null, perDivTable), card('Per kategori kebutuhan', 'Hanya program Diajukan', perCatTable)),
@@ -289,7 +450,7 @@ export async function financeRabDetailView(main, ctx) {
     try {
       await rpc('rpc_f_rab_add', { p_group_id: id, p_program_ids: ids });
       toast(okMessage, 'success');
-      refresh();
+      reload();
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
@@ -305,7 +466,7 @@ export async function financeRabDetailView(main, ctx) {
     try {
       await rpc('rpc_f_rab_remove', { p_group_id: id, p_program_id: p.id });
       toast(`${p.nama_program} dikeluarkan dari ${d.name}.`, 'success');
-      refresh();
+      reload();
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
@@ -425,7 +586,7 @@ export async function financeRabDetailView(main, ctx) {
     });
     if (result === 'ok') {
       toast(`${plural(picked.size, 'program')} ditambahkan ke ${d.name}.`, 'success');
-      refresh();
+      reload();
     }
   }
 }

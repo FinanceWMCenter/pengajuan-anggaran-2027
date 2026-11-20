@@ -44,7 +44,7 @@ function Check([bool]$ok, [string]$name, [string]$detail = "") {
 }
 
 # S-01 / S-03: tabel tidak bisa dibaca
-$tables = "app_settings", "division_groups", "divisions", "program_categories", "item_categories", "programs", "program_items", "sessions", "login_attempts", "audit_log", "program_item_history", "notifications", "consolidation_groups", "consolidation_members", "consolidation_exclusions"
+$tables = "app_settings", "division_groups", "divisions", "program_categories", "item_categories", "programs", "program_items", "sessions", "login_attempts", "audit_log", "program_item_history", "notifications", "consolidation_groups", "consolidation_members", "consolidation_exclusions", "consolidation_dismissed"
 foreach ($t in $tables) {
   $r = Call "GET" "/rest/v1/$t`?select=*&limit=1"
   $leak = ($r.Status -eq 200 -and $r.Body.Trim() -ne "[]")
@@ -65,7 +65,7 @@ $r = Call "POST" "/rest/v1/rpc/rpc_list_divisions" '{}'
 Check ($r.Status -eq 200 -and $r.Body -notmatch 'pin_hash') "rpc_list_divisions tanpa pin_hash" "(HTTP $($r.Status))"
 
 # Fungsi internal tidak bisa dipanggil
-foreach ($fn in "_program_json", "_require_session", "_overview", "_random_digits", "_audit", "_parse_item", "_item_snapshot", "_item_history", "_notify", "_renumber_items", "_overview_detail", "_rab_programs", "_rab_summary", "_rab_clean_name") {
+foreach ($fn in "_program_json", "_require_session", "_overview", "_random_digits", "_audit", "_parse_item", "_item_snapshot", "_item_history", "_notify", "_renumber_items", "_overview_detail", "_rab_programs", "_rab_summary", "_rab_clean_name", "_rab_suggest", "_rab_tokens", "_rab_common_keys") {
   $r = Call "POST" "/rest/v1/rpc/$fn" '{}'
   Check ($r.Status -ge 400) "S-04b fungsi internal $fn tertutup" "(HTTP $($r.Status): $($r.Body))"
 }
@@ -89,6 +89,11 @@ $r = Call "POST" "/rest/v1/rpc/rpc_f_rab_add" '{"p_token":"tebakan-acak","p_grou
 Check ($r.Body -match 'AUTH_EXPIRED') "D-52 tambah program RAB Gabungan dengan token acak ditolak" "($($r.Body))"
 $r = Call "POST" "/rest/v1/rpc/rpc_f_rab_map" '{"p_token":"tebakan-acak"}'
 Check ($r.Body -match 'AUTH_EXPIRED') "D-52 penanda Konsolidasi dengan token acak ditolak" "($($r.Body))"
+# D-53 saran otomatis (butuh db/05c_rab_saran.sql sudah dijalankan)
+$r = Call "POST" "/rest/v1/rpc/rpc_f_rab_suggestions" '{"p_token":"tebakan-acak"}'
+Check ($r.Body -match 'AUTH_EXPIRED') "D-53 saran RAB Gabungan dengan token acak ditolak" "($($r.Body))"
+$r = Call "POST" "/rest/v1/rpc/rpc_f_rab_create_from_suggestion" '{"p_token":"tebakan-acak","p_name":"x","p_note":null,"p_program_ids":[]}'
+Check ($r.Body -match 'AUTH_EXPIRED') "D-53 terima saran dengan token acak ditolak" "($($r.Body))"
 # Ruang skema lain tidak terbuka
 $r = Call "GET" "/rest/v1/rpc/rpc_ping"
 Check ($r.Status -ne 500) "GET rpc tidak error server" "(HTTP $($r.Status))"
